@@ -62,21 +62,37 @@ enum DMGService {
     private static func appEntry(at url: URL) -> DMGAppEntry? {
         let name = url.deletingPathExtension().lastPathComponent
         let plistURL = url.appendingPathComponent("Contents/Info.plist")
-        let bundleID: String
-        if let dict = NSDictionary(contentsOf: plistURL),
-           let id = dict["CFBundleIdentifier"] as? String {
-            bundleID = id
-        } else {
-            bundleID = ""
+        var bundleID = ""
+        var version = ""
+        if let dict = NSDictionary(contentsOf: plistURL) {
+            bundleID = dict["CFBundleIdentifier"] as? String ?? ""
+            version = dict["CFBundleShortVersionString"] as? String
+                   ?? dict["CFBundleVersion"] as? String
+                   ?? ""
         }
-        let size = directorySize(at: url)
-        let count = fileCount(at: url)
+
+        // Check for code signature
+        let codeSigPath = url.appendingPathComponent("Contents/_CodeSignature/CodeResources").path
+        let isSigned = FileManager.default.fileExists(atPath: codeSigPath)
+
+        // Check if already installed in /Applications
+        let installedURL = URL(fileURLWithPath: "/Applications/\(name).app")
+        var installedVersion: String? = nil
+        if FileManager.default.fileExists(atPath: installedURL.path),
+           let installedDict = NSDictionary(contentsOf: installedURL.appendingPathComponent("Contents/Info.plist")) {
+            installedVersion = installedDict["CFBundleShortVersionString"] as? String
+                            ?? installedDict["CFBundleVersion"] as? String
+        }
+
         return DMGAppEntry(
             appURL: url,
             appName: name,
             bundleIdentifier: bundleID,
-            appSize: size,
-            fileCount: count
+            bundleVersion: version,
+            appSize: directorySize(at: url),
+            fileCount: fileCount(at: url),
+            isCodeSigned: isSigned,
+            installedVersion: installedVersion
         )
     }
 
@@ -198,6 +214,14 @@ enum DMGService {
                 continuation.resume(returning: (error.localizedDescription, -1))
             }
         }
+    }
+
+    // MARK: - Quarantine
+
+    /// Removes quarantine and extended attributes from an installed app so Gatekeeper allows launch.
+    static func removeQuarantine(at url: URL) async -> Bool {
+        let (_, status) = await runProcess("/usr/bin/xattr", arguments: ["-cr", url.path])
+        return status == 0
     }
 
     private static func parseMountPoint(from plistOutput: String) -> String? {

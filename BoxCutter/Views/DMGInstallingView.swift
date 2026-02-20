@@ -26,10 +26,16 @@ struct DMGInstallingView: View {
                                     .foregroundStyle(.green)
                                     .font(.caption)
                             } else {
-                                Text("\(Int(pct * 100))%")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .monospacedDigit()
+                                VStack(alignment: .trailing, spacing: 1) {
+                                    Text("\(Int(pct * 100))%")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .monospacedDigit()
+                                    Text("\(formatBytes(Int64(pct * Double(app.appSize)))) / \(formatBytes(app.appSize))")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                        .monospacedDigit()
+                                }
                             }
                         }
                         ProgressView(value: pct)
@@ -44,6 +50,10 @@ struct DMGInstallingView: View {
     private var selectedApps: [DMGAppEntry] {
         info.apps.filter { info.selectedAppIDs.contains($0.appURL) }
     }
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
 }
 
 #Preview {
@@ -56,12 +66,14 @@ struct DMGInstallingView: View {
                 DMGAppEntry(
                     appURL: URL(fileURLWithPath: "/Volumes/Example/App1.app"),
                     appName: "App1", bundleIdentifier: "com.example.app1",
-                    appSize: 50_000_000, fileCount: 1200
+                    bundleVersion: "2.0", appSize: 50_000_000, fileCount: 1200,
+                    isCodeSigned: true, installedVersion: nil
                 ),
                 DMGAppEntry(
                     appURL: URL(fileURLWithPath: "/Volumes/Example/App2.app"),
                     appName: "App2", bundleIdentifier: "com.example.app2",
-                    appSize: 80_000_000, fileCount: 2400
+                    bundleVersion: "1.5", appSize: 80_000_000, fileCount: 2400,
+                    isCodeSigned: false, installedVersion: nil
                 )
             ],
             selectedAppIDs: [

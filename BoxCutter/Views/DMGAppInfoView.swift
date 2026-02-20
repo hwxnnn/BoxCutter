@@ -36,30 +36,33 @@ struct DMGAppInfoView: View {
     private func appRow(_ app: DMGAppEntry) -> some View {
         let isSelected = info.selectedAppIDs.contains(app.appURL)
         return HStack(spacing: 10) {
-            // Checkbox for multi-app DMGs
             if info.apps.count > 1 {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? Color.accentColor : Color.gray)
                     .font(.body)
             }
 
-            // App icon
             Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
                 .resizable()
                 .frame(width: 32, height: 32)
 
-            // App info
             VStack(alignment: .leading, spacing: 3) {
                 Text(app.appName)
                     .font(.headline)
                     .lineLimit(1)
 
-                Text(formattedSize(app.appSize))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text(formattedSize(app.appSize))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    versionLabel(for: app)
+                }
             }
 
             Spacer()
+
+            signBadge(for: app)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -80,13 +83,43 @@ struct DMGAppInfoView: View {
 
             Button("Show in Finder") { onShow() }
 
-            Button("Install") { onInstall() }
+            Button(installButtonLabel) { onInstall() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(info.selectedAppIDs.isEmpty)
         }
     }
 
     // MARK: - Helpers
+
+    private var installButtonLabel: String {
+        let selected = info.apps.filter { info.selectedAppIDs.contains($0.appURL) }
+        guard !selected.isEmpty else { return "Install" }
+        return selected.allSatisfy { $0.installedVersion != nil } ? "Update" : "Install"
+    }
+
+    @ViewBuilder
+    private func versionLabel(for app: DMGAppEntry) -> some View {
+        if let installedVer = app.installedVersion {
+            // Update available — show old → new
+            Text("\(installedVer) → \(app.bundleVersion)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else if !app.bundleVersion.isEmpty {
+            Text(app.bundleVersion)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func signBadge(for app: DMGAppEntry) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: app.isCodeSigned ? "checkmark.seal.fill" : "xmark.seal.fill")
+                .font(.caption2)
+            Text(app.isCodeSigned ? "Signed" : "Unsigned")
+                .font(.caption2)
+        }
+        .foregroundStyle(app.isCodeSigned ? .green : .orange)
+    }
 
     private func formattedSize(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
@@ -104,8 +137,11 @@ struct DMGAppInfoView: View {
                     appURL: URL(fileURLWithPath: "/Volumes/Example/MyApp.app"),
                     appName: "MyApp",
                     bundleIdentifier: "com.example.myapp",
+                    bundleVersion: "3.1.0",
                     appSize: 125_000_000,
-                    fileCount: 3200
+                    fileCount: 3200,
+                    isCodeSigned: false,
+                    installedVersion: "2.4.0"
                 )
             ],
             selectedAppIDs: [URL(fileURLWithPath: "/Volumes/Example/MyApp.app")]

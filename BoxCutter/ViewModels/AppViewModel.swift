@@ -14,6 +14,7 @@ class AppViewModel {
     var installTarget: String = "/"
     var showLicense: Bool = false
     var dmgInstallProgress: [URL: Double] = [:]
+    var quarantineFixedApps: Set<URL> = []
     private var currentMountPoint: URL?
 
     let helperManager = HelperManager()
@@ -196,7 +197,8 @@ class AppViewModel {
                             return .success(InstalledApp(
                                 appName: app.appName,
                                 installedURL: dest,
-                                bundleIdentifier: app.bundleIdentifier
+                                bundleIdentifier: app.bundleIdentifier,
+                                isCodeSigned: app.isCodeSigned
                             ))
                         } catch {
                             return .failure(error)
@@ -244,10 +246,6 @@ class AppViewModel {
     }
 
     func cancelDMG() {
-        if let mp = currentMountPoint {
-            DMGService.unmount(mountPoint: mp)
-            currentMountPoint = nil
-        }
         reset()
     }
 
@@ -264,8 +262,8 @@ class AppViewModel {
 
     func reset() {
         if let mp = currentMountPoint {
-            DMGService.unmount(mountPoint: mp)
             currentMountPoint = nil
+            Task.detached { DMGService.unmount(mountPoint: mp) }
         }
         state = .idle
         outputLines = []
@@ -274,6 +272,16 @@ class AppViewModel {
         showLicense = false
         installTarget = "/"
         dmgInstallProgress = [:]
+        quarantineFixedApps = []
+    }
+
+    func removeQuarantine(app: InstalledApp) {
+        Task {
+            let success = await DMGService.removeQuarantine(at: app.installedURL)
+            if success {
+                quarantineFixedApps.insert(app.installedURL)
+            }
+        }
     }
 
     func selectFile() {

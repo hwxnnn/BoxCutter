@@ -6,8 +6,12 @@ struct DMGAppEntry: Equatable, Identifiable {
     let appURL: URL
     let appName: String
     let bundleIdentifier: String
+    let bundleVersion: String
     let appSize: Int64
     let fileCount: Int
+    let isCodeSigned: Bool
+    /// Version of the currently installed copy in /Applications, nil if not installed
+    let installedVersion: String?
 }
 
 struct DMGInfo: Equatable {
@@ -24,4 +28,5 @@ struct InstalledApp: Equatable, Identifiable {
     let appName: String
     let installedURL: URL
     let bundleIdentifier: String
+    let isCodeSigned: Bool
 }

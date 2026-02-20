@@ -90,7 +90,14 @@ struct ContentView: View {
                 )
 
             case .dmgCompleted(let apps):
-                dmgCompletionView(apps: apps)
+                DMGCompletionView(
+                    apps: apps,
+                    quarantineFixedApps: viewModel.quarantineFixedApps,
+                    onDone: { NSApplication.shared.terminate(nil) },
+                    onShowInFinder: { app in viewModel.revealInstalledApp(app) },
+                    onOpenApp: { app in viewModel.openInstalledApp(app) },
+                    onFixQuarantine: { app in viewModel.removeQuarantine(app: app) }
+                )
 
             case .dmgFailed(let errorMessage):
                 CompletionView(
@@ -110,32 +117,6 @@ struct ContentView: View {
                 viewModel.handleFile(url: url)
             }
         }
-    }
-
-    // MARK: - DMG Completion
-
-    private func dmgCompletionView(apps: [InstalledApp]) -> some View {
-        let name = apps.count == 1
-            ? apps[0].appName
-            : "\(apps.count) apps"
-        var actions: [CompletionAction] = []
-        if let first = apps.first {
-            actions.append(CompletionAction(label: "Show in Finder") {
-                viewModel.revealInstalledApp(first)
-            })
-        }
-        if apps.count == 1, let only = apps.first {
-            actions.append(CompletionAction(label: "Open App") {
-                viewModel.openInstalledApp(only)
-            })
-        }
-        return CompletionView(
-            success: true,
-            packageName: name,
-            message: "",
-            onDone: { NSApplication.shared.terminate(nil) },
-            extraActions: actions
-        )
     }
 
     // MARK: - Banners
