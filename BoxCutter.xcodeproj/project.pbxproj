@@ -34,6 +34,8 @@
 			children = (
 				D5928B442F48413F0014694F /* BoxCutter */,
 				D5928B432F48413F0014694F /* Products */,
+				D5928B542F4846220014694F /* Shared */,
+				D5928B552F4846230014694F /* Helper */,
 			);
 			sourceTree = "<group>";
 		};
@@ -43,6 +45,20 @@
 				D5928B422F48413F0014694F /* BoxCutter.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D5928B542F4846220014694F /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		D5928B552F4846230014694F /* Helper */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Helper;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
