@@ -14,7 +14,7 @@ struct DropZoneView: View {
                 .font(.system(size: 36))
                 .foregroundStyle(isTargeted ? Color.accentColor : .secondary)
 
-            Text("Drop .pkg here")
+            Text("Drop .pkg or .dmg here")
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
@@ -37,7 +37,7 @@ struct DropZoneView: View {
             guard let data = data as? Data,
                   let urlString = String(data: data, encoding: .utf8),
                   let url = URL(string: urlString),
-                  url.pathExtension.lowercased() == "pkg" else { return }
+                  ["pkg", "dmg"].contains(url.pathExtension.lowercased()) else { return }
             DispatchQueue.main.async { onFileDrop(url) }
         }
         return true

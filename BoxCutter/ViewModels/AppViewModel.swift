@@ -128,11 +128,14 @@ class AppViewModel {
 
     func selectFile() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [UTType(filenameExtension: "pkg")!]
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "pkg")!,
+            UTType(filenameExtension: "dmg")!
+        ]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         if panel.runModal() == .OK, let url = panel.url {
-            loadPackage(url: url)
+            handleFile(url: url)
         }
     }
 

@@ -24,16 +24,16 @@ struct BoxCutterApp: App {
 }
 
 extension Notification.Name {
-    static let openPackageFile = Notification.Name("openPackageFile")
+    static let openFile = Notification.Name("openFile")
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls where url.pathExtension.lowercased() == "pkg" {
-            NotificationCenter.default.post(
-                name: .openPackageFile,
-                object: url
-            )
+        for url in urls {
+            let ext = url.pathExtension.lowercased()
+            if ext == "pkg" || ext == "dmg" {
+                NotificationCenter.default.post(name: .openFile, object: url)
+            }
         }
     }
 }
