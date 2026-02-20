@@ -17,7 +17,7 @@ struct ContentView: View {
             switch viewModel.state {
             case .idle:
                 DropZoneView(
-                    onFileDrop: { url in viewModel.loadPackage(url: url) },
+                    onFileDrop: { url in viewModel.handleFile(url: url) },
                     onSelectFile: { viewModel.selectFile() }
                 )
 
@@ -61,18 +61,84 @@ struct ContentView: View {
                     message: errorMessage,
                     onDone: { viewModel.reset() }
                 )
+
+            // DMG states
+            case .dmgMounting:
+                VStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Mounting disk image\u{2026}")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+
+            case .dmgReady(let info):
+                DMGAppInfoView(
+                    info: info,
+                    onCancel: { viewModel.cancelDMG() },
+                    onInstall: { viewModel.installSelectedApps() },
+                    onShow: { viewModel.showDMGInFinder() },
+                    onToggleApp: { app in viewModel.toggleAppSelection(app) }
+                )
+
+            case .dmgInstalling(let info):
+                DMGInstallingView(
+                    info: info,
+                    progress: viewModel.dmgInstallProgress
+                )
+
+            case .dmgCompleted(let apps):
+                dmgCompletionView(apps: apps)
+
+            case .dmgFailed(let errorMessage):
+                CompletionView(
+                    success: false,
+                    packageName: "Disk Image",
+                    message: errorMessage,
+                    onDone: { viewModel.reset() }
+                )
             }
         }
         .frame(width: 400)
         .onAppear {
             AppSettings.shared.applyWindowLevel()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .openPackageFile)) { notification in
+        .onReceive(NotificationCenter.default.publisher(for: .openFile)) { notification in
             if let url = notification.object as? URL {
-                viewModel.loadPackage(url: url)
+                viewModel.handleFile(url: url)
             }
         }
     }
+
+    // MARK: - DMG Completion
+
+    private func dmgCompletionView(apps: [InstalledApp]) -> some View {
+        let name = apps.count == 1
+            ? apps[0].appName
+            : "\(apps.count) apps"
+        var actions: [CompletionAction] = []
+        if let first = apps.first {
+            actions.append(CompletionAction(label: "Show in Finder") {
+                viewModel.revealInstalledApp(first)
+            })
+        }
+        if apps.count == 1, let only = apps.first {
+            actions.append(CompletionAction(label: "Open App") {
+                viewModel.openInstalledApp(only)
+            })
+        }
+        return CompletionView(
+            success: true,
+            packageName: name,
+            message: "",
+            onDone: { NSApplication.shared.terminate(nil) },
+            extraActions: actions
+        )
+    }
+
+    // MARK: - Banners
 
     private var approvalBanner: some View {
         HStack(spacing: 6) {

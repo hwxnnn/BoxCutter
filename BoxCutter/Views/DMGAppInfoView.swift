@@ -39,7 +39,7 @@ struct DMGAppInfoView: View {
             // Checkbox for multi-app DMGs
             if info.apps.count > 1 {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? Color.accentColor : .tertiary)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.gray)
                     .font(.body)
                     .onTapGesture { onToggleApp(app) }
             }
