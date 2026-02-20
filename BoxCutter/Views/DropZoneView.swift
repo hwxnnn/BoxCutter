@@ -41,6 +41,8 @@ struct DropZoneView: View {
         }
     }
 
+    // MARK: - Drop Handling
+
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
         guard let provider = providers.first else { return false }
 
@@ -56,4 +58,12 @@ struct DropZoneView: View {
         }
         return true
     }
+}
+
+#Preview {
+    DropZoneView(
+        onFileDrop: { _ in },
+        onSelectFile: {}
+    )
+    .frame(width: 520, height: 480)
 }

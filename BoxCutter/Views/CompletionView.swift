@@ -43,3 +43,23 @@ struct CompletionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+
+#Preview("Success") {
+    CompletionView(
+        success: true,
+        packageName: "Example Application",
+        message: "Installation completed successfully.",
+        onDone: {}
+    )
+    .frame(width: 520, height: 480)
+}
+
+#Preview("Failure") {
+    CompletionView(
+        success: false,
+        packageName: "Example Application",
+        message: "Installation failed with exit code 1.",
+        onDone: {}
+    )
+    .frame(width: 520, height: 480)
+}

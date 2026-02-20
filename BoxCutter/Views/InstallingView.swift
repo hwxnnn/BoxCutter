@@ -58,3 +58,22 @@ struct InstallingView: View {
         }
     }
 }
+
+#Preview {
+    InstallingView(
+        packageName: "Example Application",
+        outputLines: [
+            "installer: Package name is Example Application",
+            "installer: Installing at base path /",
+            "installer: Preparing for installation...",
+            "installer:PHASE:Preparing for installation...",
+            "installer:%percent:0.5",
+            "installer:%percent:12.0",
+            "installer:%percent:35.8",
+            "installer:PHASE:Configuring the installation...",
+            "installer:%percent:42.0"
+        ],
+        progress: 0.42
+    )
+    .frame(width: 520, height: 480)
+}

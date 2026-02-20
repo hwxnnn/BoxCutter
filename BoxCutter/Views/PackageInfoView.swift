@@ -123,3 +123,26 @@ struct PackageInfoView: View {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }
+
+#Preview {
+    PackageInfoView(
+        info: PackageInfo(
+            fileURL: URL(fileURLWithPath: "/tmp/Example.pkg"),
+            fileName: "Example.pkg",
+            fileSize: 48_300_000,
+            packageName: "Example Application",
+            packageIdentifier: "com.example.app",
+            version: "2.1.0",
+            installLocation: "/",
+            isSigned: true,
+            signingStatus: "Signed",
+            certificateChain: ["Developer ID Installer: Example Inc", "Developer ID Certification Authority", "Apple Root CA"],
+            payloadFiles: ["/Applications/Example.app", "/usr/local/bin/example-cli"],
+            hasPreinstallScript: false,
+            hasPostinstallScript: true
+        ),
+        onCancel: {},
+        onInstall: {}
+    )
+    .frame(width: 520, height: 480)
+}

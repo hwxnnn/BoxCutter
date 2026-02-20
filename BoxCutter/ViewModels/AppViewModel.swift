@@ -63,7 +63,9 @@ class AppViewModel {
 
     func selectFile() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.package]
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "pkg")!
+        ]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
 
