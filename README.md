@@ -11,7 +11,7 @@ Drop a <code>.pkg</code> or <code>.dmg</code> — BoxCutter installs it in secon
 
 <p align="center">
 No more double-clicking disk images, dragging to Applications, unmounting volumes,<br>
-or running through multi-step installer wizards. Just drop and go.
+or running through multi-step installer wizards. Just open, hit install, done.
 </p>
 
 ---
@@ -21,13 +21,13 @@ or running through multi-step installer wizards. Just drop and go.
 <table>
   <tr>
     <td align="center"><img src="assets/main-view.png" width="300"><br><sub>Drop Zone</sub></td>
-    <td align="center"><img src="assets/pkg-preview.png" width="300"><br><sub>Package Preview</sub></td>
-    <td align="center"><img src="assets/pkg-progress.png" width="300"><br><sub>Installation Progress</sub></td>
+    <td align="center"><img src="assets/pkg-preview.png" width="300"><br><sub>.pkg Preview</sub></td>
+    <td align="center"><img src="assets/pkg-progress.png" width="300"><br><sub>.pkg Installation Progress</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="assets/pkg-complete.png" width="300"><br><sub>Complete</sub></td>
-    <td align="center"><img src="assets/dmg-preview.png" width="300"><br><sub>DMG Preview</sub></td>
-    <td align="center"><img src="assets/dmg-complete.png" width="300"><br><sub>DMG Complete</sub></td>
+    <td align="center"><img src="assets/dmg-preview.png" width="300"><br><sub>.dmg Preview</sub></td>
+    <td align="center"><img src="assets/dmg-complete.png" width="300"><br><sub>.dmg Complete</sub></td>
   </tr>
 </table>
 
