@@ -33,7 +33,9 @@ struct ContentView: View {
                     onCancel: { viewModel.reset() },
                     onInstall: { viewModel.install(package: info) },
                     showDetails: $viewModel.showDetails,
-                    detailsLoading: viewModel.detailsLoading
+                    detailsLoading: viewModel.detailsLoading,
+                    installTarget: $viewModel.installTarget,
+                    showLicense: $viewModel.showLicense
                 )
 
             case .installing(let info):
@@ -62,6 +64,9 @@ struct ContentView: View {
             }
         }
         .frame(width: 400)
+        .onAppear {
+            AppSettings.shared.applyWindowLevel()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .openPackageFile)) { notification in
             if let url = notification.object as? URL {
                 viewModel.loadPackage(url: url)

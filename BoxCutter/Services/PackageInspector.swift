@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 enum PackageInspector {
 
@@ -59,16 +60,17 @@ enum PackageInspector {
         let url = info.fileURL
 
         async let files = Task.detached { try? Self.fetchPayloadFiles(url: url) }.value
-        async let scripts = Task.detached { try? Self.fetchScriptInfo(url: url) }.value
+        async let scriptsAndLicense = Task.detached { try? Self.fetchScriptAndLicenseInfo(url: url) }.value
 
-        let (payloadFiles, scriptInfo) = await (files, scripts)
+        let (payloadFiles, detail) = await (files, scriptsAndLicense)
 
         if let payloadFiles {
             info.payloadFiles = payloadFiles
         }
-        if let scriptInfo {
-            info.hasPreinstallScript = scriptInfo.hasPreinstall
-            info.hasPostinstallScript = scriptInfo.hasPostinstall
+        if let detail {
+            info.hasPreinstallScript = detail.hasPreinstall
+            info.hasPostinstallScript = detail.hasPostinstall
+            info.licenseText = detail.license
         }
         info.detailsLoaded = true
     }
@@ -103,12 +105,13 @@ enum PackageInspector {
         return output.components(separatedBy: "\n").filter { !$0.isEmpty }
     }
 
-    private struct ScriptPresence {
+    private struct PackageDetail {
         let hasPreinstall: Bool
         let hasPostinstall: Bool
+        let license: String
     }
 
-    private static func fetchScriptInfo(url: URL) throws -> ScriptPresence {
+    private static func fetchScriptAndLicenseInfo(url: URL) throws -> PackageDetail {
         let tmpDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("BoxCutter-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmpDir) }
@@ -117,19 +120,41 @@ enum PackageInspector {
 
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(atPath: tmpDir.path) else {
-            return ScriptPresence(hasPreinstall: false, hasPostinstall: false)
+            return PackageDetail(hasPreinstall: false, hasPostinstall: false, license: "")
         }
 
         var hasPreinstall = false
         var hasPostinstall = false
+        var license = ""
 
         while let file = enumerator.nextObject() as? String {
-            let name = (file as NSString).lastPathComponent
+            let name = (file as NSString).lastPathComponent.lowercased()
             if name == "preinstall" { hasPreinstall = true }
             if name == "postinstall" { hasPostinstall = true }
+
+            // Look for license files
+            if license.isEmpty {
+                if name.hasPrefix("license") || name.hasPrefix("licence") {
+                    let fullPath = tmpDir.appendingPathComponent(file)
+                    if name.hasSuffix(".rtf") {
+                        // Convert RTF to plain text
+                        if let rtfData = try? Data(contentsOf: fullPath),
+                           let attrStr = NSAttributedString(rtf: rtfData, documentAttributes: nil) {
+                            license = attrStr.string
+                        }
+                    } else if name.hasSuffix(".txt") || name.hasSuffix(".md") {
+                        license = (try? String(contentsOf: fullPath, encoding: .utf8)) ?? ""
+                    } else if name.hasSuffix(".html") || name.hasSuffix(".htm") {
+                        if let htmlData = try? Data(contentsOf: fullPath),
+                           let attrStr = NSAttributedString(html: htmlData, documentAttributes: nil) {
+                            license = attrStr.string
+                        }
+                    }
+                }
+            }
         }
 
-        return ScriptPresence(hasPreinstall: hasPreinstall, hasPostinstall: hasPostinstall)
+        return PackageDetail(hasPreinstall: hasPreinstall, hasPostinstall: hasPostinstall, license: license)
     }
 
     // MARK: - Process Runner

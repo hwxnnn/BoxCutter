@@ -61,6 +61,12 @@ struct SettingsView: View {
 
     private var displayTab: some View {
         Form {
+            Section("Window") {
+                Toggle("Always on top", isOn: $settings.alwaysOnTop)
+            }
+
+            Divider()
+
             Section("During Installation") {
                 Toggle("Show verbose installer output", isOn: $settings.showVerboseOutput)
                 Toggle("Show progress bar", isOn: $settings.showProgressBar)
@@ -81,10 +87,6 @@ struct SettingsView: View {
 
     private var behaviorTab: some View {
         Form {
-            Toggle("Keep window on top during installation", isOn: $settings.floatDuringInstall)
-
-            Divider()
-
             Toggle("Play sound when installation completes", isOn: $settings.playSoundOnComplete)
 
             if settings.playSoundOnComplete {

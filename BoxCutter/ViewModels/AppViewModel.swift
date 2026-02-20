@@ -11,6 +11,8 @@ class AppViewModel {
     var progress: Double = 0
     var showDetails: Bool = false
     var detailsLoading: Bool = false
+    var installTarget: String = "/"
+    var showLicense: Bool = false
 
     let helperManager = HelperManager()
     private let settings = AppSettings.shared
@@ -87,10 +89,10 @@ class AppViewModel {
                 result = await xpcClient.installPackage(atPath: info.fileURL.path)
                 if !result.0 && result.1.contains("XPC connection error") {
                     outputLines.append("[BoxCutter] Helper unreachable, prompting for password...")
-                    result = await directInstaller.installPackage(atPath: info.fileURL.path)
+                    result = await directInstaller.installPackage(atPath: info.fileURL.path, target: installTarget)
                 }
             } else {
-                result = await directInstaller.installPackage(atPath: info.fileURL.path)
+                result = await directInstaller.installPackage(atPath: info.fileURL.path, target: installTarget)
             }
 
             if result.0 {
@@ -120,6 +122,8 @@ class AppViewModel {
         outputLines = []
         progress = 0
         showDetails = false
+        showLicense = false
+        installTarget = "/"
     }
 
     func selectFile() {

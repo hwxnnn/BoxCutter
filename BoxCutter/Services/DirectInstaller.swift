@@ -6,7 +6,7 @@ class DirectInstaller {
 
     var onOutputLine: ((String) -> Void)?
 
-    func installPackage(atPath path: String) async -> (Bool, String) {
+    func installPackage(atPath path: String, target: String = "/") async -> (Bool, String) {
         // Copy pkg to /tmp/ so the privileged process can access it
         // (macOS TCC blocks root from reading ~/Downloads, ~/Desktop, etc.)
         let fileName = URL(fileURLWithPath: path).lastPathComponent
@@ -36,7 +36,10 @@ class DirectInstaller {
             .replacingOccurrences(of: "\"", with: "\\\"")
 
         // Redirect installer output to the log file so we can tail it in real-time
-        let shellCmd = "/usr/sbin/installer -verboseR -pkg \\\"\(escaped)\\\" -target / > \\\"\(logEscaped)\\\" 2>&1"
+        let targetEscaped = target
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let shellCmd = "/usr/sbin/installer -verboseR -pkg \\\"\(escaped)\\\" -target \\\"\(targetEscaped)\\\" > \\\"\(logEscaped)\\\" 2>&1"
         let appleScript = "do shell script \"\(shellCmd)\" with administrator privileges"
 
         // Start tailing the log file for real-time output

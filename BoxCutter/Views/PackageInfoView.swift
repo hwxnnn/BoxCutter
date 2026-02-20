@@ -8,16 +8,18 @@ struct PackageInfoView: View {
     let onInstall: () -> Void
     @Binding var showDetails: Bool
     let detailsLoading: Bool
+    @Binding var installTarget: String
+    @Binding var showLicense: Bool
 
     private let settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            // PINNED: Header — never moves
+            // PINNED: Header
             header
                 .padding(16)
 
-            // EXPANDABLE: Details section — grows/shrinks here
+            // EXPANDABLE: Details
             if showDetails && info.detailsLoaded {
                 Divider()
                     .padding(.horizontal, 16)
@@ -25,7 +27,7 @@ struct PackageInfoView: View {
                 detailsContent
             }
 
-            // PINNED: Divider + action bar — never moves relative to header when collapsed
+            // PINNED: Action bar
             Divider()
                 .padding(.horizontal, 16)
 
@@ -33,7 +35,6 @@ struct PackageInfoView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
         }
-        .clipped()
     }
 
     // MARK: - Header
@@ -69,28 +70,48 @@ struct PackageInfoView: View {
     // MARK: - Action bar
 
     private var actionBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
+            // Details toggle
             Button {
-                if info.detailsLoaded {
-                    showDetails.toggle()
-                }
+                if info.detailsLoaded { showDetails.toggle() }
             } label: {
                 HStack(spacing: 4) {
                     if detailsLoading {
-                        ProgressView()
-                            .controlSize(.mini)
+                        ProgressView().controlSize(.mini)
                     } else {
                         Image(systemName: "chevron.right")
                             .rotationEffect(.degrees(showDetails ? 90 : 0))
                             .font(.caption2)
                     }
-                    Text("Details")
-                        .font(.caption)
+                    Text("Details").font(.caption)
                 }
             }
             .buttonStyle(.plain)
             .foregroundStyle(detailsLoading ? .tertiary : .secondary)
             .disabled(detailsLoading)
+
+            // License button (only if license exists)
+            if !info.licenseText.isEmpty {
+                Button {
+                    showLicense.toggle()
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "doc.text").font(.caption2)
+                        Text("License").font(.caption)
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .popover(isPresented: $showLicense, arrowEdge: .top) {
+                    ScrollView {
+                        Text(info.licenseText)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .padding(12)
+                    }
+                    .frame(width: 380, height: 300)
+                }
+            }
 
             Spacer()
 
@@ -119,7 +140,6 @@ struct PackageInfoView: View {
     private var detailsContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                // Info rows
                 VStack(spacing: 0) {
                     if !info.packageIdentifier.isEmpty {
                         infoRow("Identifier", info.packageIdentifier)
@@ -127,14 +147,35 @@ struct PackageInfoView: View {
                     if !info.version.isEmpty {
                         infoRow("Version", info.version)
                     }
-                    infoRow("Location", info.installLocation)
+
+                    // Install location picker
+                    HStack(alignment: .top) {
+                        Text("Location")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 80, alignment: .trailing)
+
+                        Picker("", selection: $installTarget) {
+                            Text("/ (All Users)").tag("/")
+                            ForEach(mountedVolumes, id: \.self) { vol in
+                                Text(vol).tag(vol)
+                            }
+                        }
+                        .labelsHidden()
+                        .controlSize(.small)
+                        .frame(maxWidth: 200, alignment: .leading)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 3)
 
                     if !info.certificateChain.isEmpty {
                         infoRow("Certificate", info.certificateChain.joined(separator: " \u{2192} "))
                     }
                 }
 
-                // Script warnings as pills
+                // Script warnings
                 if settings.showScriptWarnings && (info.hasPreinstallScript || info.hasPostinstallScript) {
                     HStack(spacing: 6) {
                         if info.hasPreinstallScript {
@@ -164,21 +205,31 @@ struct PackageInfoView: View {
                             }
                         }
                     }
+                    .padding(.bottom, 4)
                 }
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
         }
         .frame(maxHeight: 280)
     }
 
     // MARK: - Helpers
 
+    private var mountedVolumes: [String] {
+        FileManager.default.mountedVolumeURLs(
+            includingResourceValuesForKeys: nil,
+            options: [.skipHiddenVolumes]
+        )?
+        .compactMap { url in
+            let path = url.path
+            return path == "/" ? nil : path
+        } ?? []
+    }
+
     private func warningPill(_ text: String) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.caption2)
-            Text(text)
-                .font(.caption2)
+            Image(systemName: "exclamationmark.triangle.fill").font(.caption2)
+            Text(text).font(.caption2)
         }
         .foregroundStyle(.orange)
         .padding(.horizontal, 8)
@@ -215,21 +266,8 @@ struct PackageInfoView: View {
             version: "2.1.0", isSigned: true, signingStatus: "Signed"
         ),
         onCancel: {}, onInstall: {},
-        showDetails: .constant(false), detailsLoading: false
-    )
-    .frame(width: 400)
-}
-
-#Preview("Loading") {
-    PackageInfoView(
-        info: PackageInfo(
-            fileURL: URL(fileURLWithPath: "/tmp/Example.pkg"),
-            fileName: "Example.pkg", fileSize: 48_300_000,
-            packageName: "Example Application", packageIdentifier: "com.example.app",
-            version: "2.1.0", isSigned: true, signingStatus: "Signed"
-        ),
-        onCancel: {}, onInstall: {},
-        showDetails: .constant(false), detailsLoading: true
+        showDetails: .constant(false), detailsLoading: false,
+        installTarget: .constant("/"), showLicense: .constant(false)
     )
     .frame(width: 400)
 }

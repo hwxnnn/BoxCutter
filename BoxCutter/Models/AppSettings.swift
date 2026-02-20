@@ -56,9 +56,20 @@ class AppSettings {
         didSet { UserDefaults.standard.set(preferHelperDaemon, forKey: "preferHelperDaemon") }
     }
 
-    /// Keep the window on top of other windows during installation
-    var floatDuringInstall: Bool {
-        didSet { UserDefaults.standard.set(floatDuringInstall, forKey: "floatDuringInstall") }
+    /// Keep the window always on top
+    var alwaysOnTop: Bool {
+        didSet {
+            UserDefaults.standard.set(alwaysOnTop, forKey: "alwaysOnTop")
+            applyWindowLevel()
+        }
+    }
+
+    func applyWindowLevel() {
+        DispatchQueue.main.async {
+            for window in NSApplication.shared.windows where window.identifier?.rawValue != "com_apple_SwiftUI_Settings_window" {
+                window.level = self.alwaysOnTop ? .floating : .normal
+            }
+        }
     }
 
     /// Play a sound when installation completes
@@ -87,7 +98,7 @@ class AppSettings {
             "showScriptWarnings": true,
             "showPayloadFiles": true,
             "preferHelperDaemon": true,
-            "floatDuringInstall": false,
+            "alwaysOnTop": false,
             "playSoundOnComplete": true,
             "completionSound": "Glass"
         ]
@@ -103,7 +114,7 @@ class AppSettings {
         showScriptWarnings = defaults.bool(forKey: "showScriptWarnings")
         showPayloadFiles = defaults.bool(forKey: "showPayloadFiles")
         preferHelperDaemon = defaults.bool(forKey: "preferHelperDaemon")
-        floatDuringInstall = defaults.bool(forKey: "floatDuringInstall")
+        alwaysOnTop = defaults.bool(forKey: "alwaysOnTop")
         playSoundOnComplete = defaults.bool(forKey: "playSoundOnComplete")
         completionSound = defaults.string(forKey: "completionSound") ?? "Glass"
     }
