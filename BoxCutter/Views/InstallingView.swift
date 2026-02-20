@@ -50,22 +50,14 @@ struct InstallingView: View {
             }
 
             if settings.showProgressBar {
-                // Progress bar
                 VStack(spacing: 4) {
-                    if progress > 0 {
-                        ProgressView(value: progress)
-                            .progressViewStyle(.linear)
-                    } else {
-                        ProgressView()
-                            .progressViewStyle(.linear)
-                    }
+                    ProgressView(value: progress)
+                        .progressViewStyle(.linear)
 
-                    if progress > 0 {
-                        Text("\(Int(progress * 100))%")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                    }
+                    Text("\(Int(progress * 100))%")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .padding()
             }

@@ -150,7 +150,11 @@ class AppViewModel {
             let match = trimmed[range]
             if let numRange = match.range(of: #"\d+\.?\d*"#, options: .regularExpression) {
                 if let value = Double(match[numRange]) {
-                    progress = min(value / 100.0, 1.0)
+                    let newProgress = min(value / 100.0, 1.0)
+                    // Only move forward — never decrease
+                    if newProgress > progress {
+                        progress = newProgress
+                    }
                 }
             }
         }
