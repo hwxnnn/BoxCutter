@@ -4,42 +4,99 @@ import ServiceManagement
 struct SettingsView: View {
 
     @Bindable private var settings = AppSettings.shared
+    @State private var selectedTab: Int = 0
     @State private var helperStatus: String = "Checking..."
     @State private var helperActionError: String?
 
     private let daemon = SMAppService.daemon(plistName: "com.hwxnnn.BoxCutter-Helper.plist")
 
+    private let sounds = [
+        "Basso", "Blow", "Bottle", "Frog", "Funk", "Glass",
+        "Hero", "Morse", "Ping", "Pop", "Purr", "Sosumi", "Submarine", "Tink"
+    ]
+
     var body: some View {
-        TabView {
-            generalTab
-                .tabItem { Label("General", systemImage: "gearshape") }
-
-            behaviorTab
-                .tabItem { Label("Behavior", systemImage: "slider.horizontal.3") }
-
-            helperTab
-                .tabItem { Label("Helper", systemImage: "wrench.and.screwdriver") }
-        }
-        .frame(width: 440, height: 360)
-        .onAppear { refreshHelperStatus() }
-    }
-
-    // MARK: - General Tab
-
-    private var generalTab: some View {
-        Form {
-            Section("Window") {
-                Toggle("Always on top", isOn: $settings.alwaysOnTop)
-            }
+        VStack(spacing: 0) {
+            // Custom segmented tab bar
+            segmentedBar
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 12)
 
             Divider()
 
-            Section("After Installation") {
-                Toggle("Automatically close after install", isOn: $settings.autoCloseAfterInstall)
+            // Tab content
+            ScrollView {
+                Group {
+                    switch selectedTab {
+                    case 0:  generalContent
+                    case 1:  behaviorContent
+                    default: helperContent
+                    }
+                }
+                .padding(16)
+            }
+        }
+        .frame(width: 480, height: 430)
+        .onAppear { refreshHelperStatus() }
+    }
+
+    // MARK: - Segmented Bar
+
+    private var segmentedBar: some View {
+        HStack(spacing: 2) {
+            tabSegment("General",  icon: "gearshape.fill",            tag: 0)
+            tabSegment("Behavior", icon: "slider.horizontal.3",       tag: 1)
+            tabSegment("Helper",   icon: "wrench.and.screwdriver.fill", tag: 2)
+        }
+        .padding(3)
+        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 9))
+    }
+
+    private func tabSegment(_ title: String, icon: String, tag: Int) -> some View {
+        let active = selectedTab == tag
+        return Button {
+            withAnimation(.easeInOut(duration: 0.13)) { selectedTab = tag }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(
+                active
+                    ? AnyShapeStyle(.background)
+                    : AnyShapeStyle(Color.clear),
+                in: RoundedRectangle(cornerRadius: 7)
+            )
+            .foregroundStyle(active ? .primary : .secondary)
+            .shadow(color: active ? .black.opacity(0.07) : .clear, radius: 1, y: 0.5)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - General
+
+    private var generalContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            card("Window") {
+                iconToggle("Always on top",
+                           icon: "pin.fill", color: .blue,
+                           binding: $settings.alwaysOnTop,
+                           detail: "Float above all other windows")
+            }
+
+            card("After Installation") {
+                iconToggle("Auto close when done",
+                           icon: "xmark.circle.fill", color: .orange,
+                           binding: $settings.autoCloseAfterInstall)
 
                 if settings.autoCloseAfterInstall {
-                    HStack {
-                        Text("Close after")
+                    rowDivider
+                    indentRow("Close after") {
                         Picker("", selection: $settings.autoCloseDelay) {
                             Text("1 second").tag(1.0)
                             Text("3 seconds").tag(3.0)
@@ -47,176 +104,300 @@ struct SettingsView: View {
                             Text("10 seconds").tag(10.0)
                         }
                         .labelsHidden()
-                        .frame(width: 120)
+                        .frame(width: 110)
                     }
-                    .padding(.leading, 20)
                 }
 
-                Toggle("Play sound when installation completes", isOn: $settings.playSoundOnComplete)
+                rowDivider
+
+                iconToggle("Play completion sound",
+                           icon: "speaker.wave.2.fill", color: .purple,
+                           binding: $settings.playSoundOnComplete)
 
                 if settings.playSoundOnComplete {
-                    Picker("Sound", selection: $settings.completionSound) {
-                        Text("Basso").tag("Basso")
-                        Text("Blow").tag("Blow")
-                        Text("Bottle").tag("Bottle")
-                        Text("Frog").tag("Frog")
-                        Text("Funk").tag("Funk")
-                        Text("Glass").tag("Glass")
-                        Text("Hero").tag("Hero")
-                        Text("Morse").tag("Morse")
-                        Text("Ping").tag("Ping")
-                        Text("Pop").tag("Pop")
-                        Text("Purr").tag("Purr")
-                        Text("Sosumi").tag("Sosumi")
-                        Text("Submarine").tag("Submarine")
-                        Text("Tink").tag("Tink")
-                    }
-                    .frame(width: 200)
-                    .padding(.leading, 20)
+                    rowDivider
+                    indentRow("Sound") {
+                        HStack(spacing: 6) {
+                            Picker("", selection: $settings.completionSound) {
+                                ForEach(sounds, id: \.self) { Text($0).tag($0) }
+                            }
+                            .labelsHidden()
+                            .frame(width: 110)
 
-                    Button("Preview") {
-                        NSSound(named: NSSound.Name(settings.completionSound))?.play()
+                            Button {
+                                NSSound(named: NSSound.Name(settings.completionSound))?.play()
+                            } label: {
+                                Image(systemName: "play.circle.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.borderless)
+                        }
                     }
-                    .padding(.leading, 20)
                 }
             }
         }
-        .padding()
     }
 
-    // MARK: - Behavior Tab
+    // MARK: - Behavior
 
-    private var behaviorTab: some View {
-        Form {
-            Section("Packages (.pkg)") {
-                Toggle("Confirm before installing", isOn: $settings.confirmBeforeInstall)
-                Toggle("Move .pkg to Trash after install", isOn: $settings.trashAfterInstall)
-
-                Divider()
-
-                Toggle("Show verbose installer output", isOn: $settings.showVerboseOutput)
-                Toggle("Show progress bar", isOn: $settings.showProgressBar)
-                Toggle("Warn about install scripts", isOn: $settings.showScriptWarnings)
-                    .help("Warn when a package contains pre-install or post-install scripts")
-                Toggle("Show payload file list", isOn: $settings.showPayloadFiles)
+    private var behaviorContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            card("Packages  ·  .pkg") {
+                iconToggle("Confirm before installing",
+                           icon: "eye.fill", color: .blue,
+                           binding: $settings.confirmBeforeInstall)
+                rowDivider
+                iconToggle("Move to Trash after install",
+                           icon: "trash.fill", color: .red,
+                           binding: $settings.trashAfterInstall)
+                rowDivider
+                iconToggle("Show verbose installer output",
+                           icon: "text.alignleft", color: Color.blue.opacity(0.75),
+                           binding: $settings.showVerboseOutput)
+                rowDivider
+                iconToggle("Show progress bar",
+                           icon: "chart.bar.fill", color: .teal,
+                           binding: $settings.showProgressBar)
+                rowDivider
+                iconToggle("Warn about install scripts",
+                           icon: "exclamationmark.triangle.fill", color: .orange,
+                           binding: $settings.showScriptWarnings)
+                rowDivider
+                iconToggle("Show payload file list",
+                           icon: "list.bullet.rectangle.fill", color: .gray,
+                           binding: $settings.showPayloadFiles)
             }
 
-            Divider()
-
-            Section("Disk Images (.dmg)") {
-                Toggle("Confirm before installing", isOn: $settings.confirmBeforeDMGInstall)
-                Toggle("Move .dmg to Trash after install", isOn: $settings.trashDMGAfterInstall)
+            card("Disk Images  ·  .dmg") {
+                iconToggle("Confirm before installing",
+                           icon: "eye.fill", color: .blue,
+                           binding: $settings.confirmBeforeDMGInstall)
+                rowDivider
+                iconToggle("Move to Trash after install",
+                           icon: "trash.fill", color: .red,
+                           binding: $settings.trashDMGAfterInstall)
             }
         }
-        .padding()
     }
 
-    // MARK: - Helper Tab
+    // MARK: - Helper
 
-    private var helperTab: some View {
-        Form {
-            Section("Privileged Helper Daemon") {
-                HStack {
-                    Text("Status")
+    private var helperContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            card("Privileged Helper Daemon") {
+                // Status row
+                HStack(spacing: 11) {
+                    iconBadge(helperStatusIcon, helperStatusColor)
+                    Text("Status").font(.body)
                     Spacer()
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(helperStatusColor)
-                            .frame(width: 8, height: 8)
-                        Text(helperStatus)
-                            .foregroundStyle(.secondary)
-                    }
+                    statusPill
                 }
+                .padding(.horizontal, 12)
+                .frame(height: 42)
 
-                Toggle("Prefer helper over password prompts", isOn: $settings.preferHelperDaemon)
-                    .help("When disabled, BoxCutter always uses password prompts instead of the helper daemon.")
+                rowDivider
+
+                iconToggle("Prefer helper over password prompts",
+                           icon: "bolt.fill", color: .yellow,
+                           binding: $settings.preferHelperDaemon)
             }
 
-            Divider()
-
-            Section("Actions") {
-                HStack(spacing: 12) {
-                    Button("Install Helper") {
-                        do {
-                            try? daemon.unregister()
-                            try daemon.register()
-                            helperActionError = nil
-                        } catch {
-                            helperActionError = error.localizedDescription
-                        }
-                        refreshHelperStatus()
-                    }
-
-                    Button("Uninstall Helper") {
-                        do {
-                            try daemon.unregister()
-                            helperActionError = nil
-                        } catch {
-                            helperActionError = error.localizedDescription
-                        }
-                        refreshHelperStatus()
-                    }
-
-                    Spacer()
-
-                    Button("Refresh") {
-                        helperActionError = nil
-                        refreshHelperStatus()
-                    }
+            card("Actions") {
+                actionRow("Install Helper",   icon: "arrow.down.circle.fill", color: .green)  { doInstallHelper() }
+                rowDivider
+                actionRow("Uninstall Helper", icon: "minus.circle.fill",      color: .red)    { doUninstallHelper() }
+                rowDivider
+                actionRow("Refresh Status",   icon: "arrow.clockwise.circle.fill", color: .blue) {
+                    helperActionError = nil
+                    refreshHelperStatus()
                 }
 
                 if let error = helperActionError {
+                    Divider().padding(.leading, 51)
                     Text(error)
                         .font(.caption)
                         .foregroundStyle(.red)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                 }
             }
 
-            Divider()
-
-            Section("Info") {
-                HStack {
-                    Text("Service name")
+            card("Info") {
+                HStack(spacing: 11) {
+                    iconBadge("tag.fill", .gray)
+                    Text("Service name").font(.body)
                     Spacer()
                     Text("com.hwxnnn.BoxCutter-Helper")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
+                .padding(.horizontal, 12)
+                .frame(height: 42)
 
-                Button("Open Login Items in System Settings") {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!)
+                rowDivider
+
+                actionRow("Login Items in System Settings",
+                          icon: "gear.badge", color: .gray, chevron: true) {
+                    NSWorkspace.shared.open(
+                        URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!
+                    )
                 }
             }
         }
-        .padding()
     }
 
-    // MARK: - Helper Status
+    // MARK: - Helper status
 
     private var helperStatusColor: Color {
         switch daemon.status {
-        case .enabled: return .green
+        case .enabled:          return .green
         case .requiresApproval: return .orange
-        case .notRegistered: return .red
-        case .notFound: return .red
-        @unknown default: return .gray
+        case .notRegistered:    return .red
+        case .notFound:         return .red
+        @unknown default:       return .gray
         }
+    }
+
+    private var helperStatusIcon: String {
+        switch daemon.status {
+        case .enabled:          return "checkmark.shield.fill"
+        case .requiresApproval: return "shield.fill"
+        default:                return "shield.slash.fill"
+        }
+    }
+
+    private var statusPill: some View {
+        HStack(spacing: 5) {
+            Circle().fill(helperStatusColor).frame(width: 6, height: 6)
+            Text(helperStatus).font(.caption.weight(.medium))
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4)
+        .background(helperStatusColor.opacity(0.12), in: Capsule())
+        .foregroundStyle(helperStatusColor)
+    }
+
+    private func doInstallHelper() {
+        do {
+            try? daemon.unregister()
+            try daemon.register()
+            helperActionError = nil
+        } catch {
+            helperActionError = error.localizedDescription
+        }
+        refreshHelperStatus()
+    }
+
+    private func doUninstallHelper() {
+        do {
+            try daemon.unregister()
+            helperActionError = nil
+        } catch {
+            helperActionError = error.localizedDescription
+        }
+        refreshHelperStatus()
     }
 
     private func refreshHelperStatus() {
         switch daemon.status {
-        case .enabled:
-            helperStatus = "Installed & Running"
-        case .requiresApproval:
-            helperStatus = "Needs Approval"
-        case .notRegistered:
-            helperStatus = "Not Installed"
-        case .notFound:
-            helperStatus = "Not Found"
-        @unknown default:
-            helperStatus = "Unknown"
+        case .enabled:          helperStatus = "Installed & Running"
+        case .requiresApproval: helperStatus = "Needs Approval"
+        case .notRegistered:    helperStatus = "Not Installed"
+        case .notFound:         helperStatus = "Not Found"
+        @unknown default:       helperStatus = "Unknown"
         }
+    }
+
+    // MARK: - Building blocks
+
+    private func card<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 2)
+
+            VStack(spacing: 0) {
+                content()
+            }
+            .background(Color(.controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+            )
+        }
+    }
+
+    private func iconToggle(
+        _ label: String,
+        icon: String,
+        color: Color,
+        binding: Binding<Bool>,
+        detail: String? = nil
+    ) -> some View {
+        HStack(spacing: 11) {
+            iconBadge(icon, color)
+            if let detail {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(label).font(.body)
+                    Text(detail).font(.caption).foregroundStyle(.tertiary)
+                }
+            } else {
+                Text(label).font(.body)
+            }
+            Spacer()
+            Toggle("", isOn: binding).labelsHidden()
+        }
+        .padding(.horizontal, 12)
+        .frame(height: detail != nil ? 52 : 42)
+    }
+
+    private func indentRow<C: View>(_ label: String, @ViewBuilder control: () -> C) -> some View {
+        HStack(spacing: 11) {
+            Color.clear.frame(width: 26)
+            Text(label).font(.body).foregroundStyle(.secondary)
+            Spacer()
+            control()
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 38)
+    }
+
+    private func actionRow(
+        _ label: String,
+        icon: String,
+        color: Color,
+        chevron: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 11) {
+                iconBadge(icon, color)
+                Text(label).font(.body).foregroundStyle(.primary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 42)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func iconBadge(_ symbol: String, _ color: Color) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 11.5, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 26, height: 26)
+            .background(color.gradient, in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var rowDivider: some View {
+        Divider().padding(.leading, 51)
     }
 }
 
