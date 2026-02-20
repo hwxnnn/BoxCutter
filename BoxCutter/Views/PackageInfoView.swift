@@ -5,6 +5,7 @@ struct PackageInfoView: View {
     let info: PackageInfo
     let onCancel: () -> Void
     let onInstall: () -> Void
+    private let settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,7 +43,7 @@ struct PackageInfoView: View {
                     }
 
                     // Script warnings
-                    if info.hasPreinstallScript || info.hasPostinstallScript {
+                    if settings.showScriptWarnings && (info.hasPreinstallScript || info.hasPostinstallScript) {
                         HStack {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.yellow)
@@ -63,7 +64,7 @@ struct PackageInfoView: View {
                     }
 
                     // Payload files
-                    if !info.payloadFiles.isEmpty {
+                    if settings.showPayloadFiles && !info.payloadFiles.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Files (\(info.payloadFiles.count))")
                                 .font(.headline)

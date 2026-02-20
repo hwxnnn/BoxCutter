@@ -12,6 +12,10 @@ struct BoxCutterApp: App {
         }
         .windowResizability(.contentSize)
         .defaultSize(width: 520, height: 480)
+
+        Settings {
+            SettingsView()
+        }
     }
 }
 

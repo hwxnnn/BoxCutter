@@ -5,6 +5,7 @@ struct InstallingView: View {
     let packageName: String
     let outputLines: [String]
     let progress: Double
+    private let settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,41 +21,54 @@ struct InstallingView: View {
 
             Divider()
 
-            // Verbose log
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 1) {
-                        ForEach(Array(outputLines.enumerated()), id: \.offset) { index, line in
-                            Text(line)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(.primary)
-                                .textSelection(.enabled)
-                                .id(index)
+            if settings.showVerboseOutput {
+                // Verbose log
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 1) {
+                            ForEach(Array(outputLines.enumerated()), id: \.offset) { index, line in
+                                Text(line)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(.primary)
+                                    .textSelection(.enabled)
+                                    .id(index)
+                            }
+                        }
+                        .padding(8)
+                    }
+                    .background(.background.secondary)
+                    .onChange(of: outputLines.count) { _, _ in
+                        if let last = outputLines.indices.last {
+                            proxy.scrollTo(last, anchor: .bottom)
                         }
                     }
-                    .padding(8)
                 }
-                .background(.background.secondary)
-                .onChange(of: outputLines.count) { _, _ in
-                    if let last = outputLines.indices.last {
-                        proxy.scrollTo(last, anchor: .bottom)
+
+                Divider()
+            } else {
+                Spacer()
+            }
+
+            if settings.showProgressBar {
+                // Progress bar
+                VStack(spacing: 4) {
+                    if progress > 0 {
+                        ProgressView(value: progress)
+                            .progressViewStyle(.linear)
+                    } else {
+                        ProgressView()
+                            .progressViewStyle(.linear)
+                    }
+
+                    if progress > 0 {
+                        Text("\(Int(progress * 100))%")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
+                .padding()
             }
-
-            Divider()
-
-            // Progress bar
-            VStack(spacing: 4) {
-                ProgressView(value: progress)
-                    .progressViewStyle(.linear)
-
-                Text("\(Int(progress * 100))%")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            .padding()
         }
     }
 }

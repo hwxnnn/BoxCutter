@@ -11,6 +11,7 @@ class AppViewModel {
     var progress: Double = 0
 
     let helperManager = HelperManager()
+    private let settings = AppSettings.shared
 
     private let inspector = PackageInspector()
     private let xpcClient = XPCClient()
@@ -29,6 +30,23 @@ class AppViewModel {
     // MARK: - Actions
 
     func loadPackage(url: URL) {
+        if !settings.confirmBeforeInstall {
+            // Skip the info screen — go straight to install
+            state = .inspecting(url)
+            Task {
+                do {
+                    let info = try await inspector.inspect(url: url)
+                    install(package: info)
+                } catch {
+                    state = .failed(
+                        PackageInfo(fileURL: url, fileName: url.lastPathComponent, fileSize: 0),
+                        errorMessage: error.localizedDescription
+                    )
+                }
+            }
+            return
+        }
+
         state = .inspecting(url)
         Task {
             do {
@@ -51,7 +69,7 @@ class AppViewModel {
         Task {
             var result: (Bool, String)
 
-            if helperManager.isHelperInstalled {
+            if settings.preferHelperDaemon && helperManager.isHelperInstalled {
                 // Try XPC to privileged helper daemon
                 result = await xpcClient.installPackage(atPath: info.fileURL.path)
 
@@ -61,15 +79,27 @@ class AppViewModel {
                     result = await directInstaller.installPackage(atPath: info.fileURL.path)
                 }
             } else {
-                // No helper — use AppleScript with password prompt
+                // Use AppleScript with password prompt
                 result = await directInstaller.installPackage(atPath: info.fileURL.path)
             }
 
             if result.0 {
-                // Move the original .pkg to Trash after successful install
-                try? FileManager.default.trashItem(at: info.fileURL, resultingItemURL: nil)
+                if settings.trashAfterInstall {
+                    try? FileManager.default.trashItem(at: info.fileURL, resultingItemURL: nil)
+                }
+                if settings.playSoundOnComplete {
+                    NSSound(named: NSSound.Name(settings.completionSound))?.play()
+                }
                 state = .completed(info)
+
+                if settings.autoCloseAfterInstall {
+                    try? await Task.sleep(for: .seconds(settings.autoCloseDelay))
+                    NSApplication.shared.terminate(nil)
+                }
             } else {
+                if settings.playSoundOnComplete {
+                    NSSound(named: NSSound.Name("Basso"))?.play()
+                }
                 state = .failed(info, errorMessage: result.1)
             }
         }
@@ -105,16 +135,23 @@ class AppViewModel {
     // MARK: - Private
 
     private func handleOutputLine(_ line: String) {
-        outputLines.append(line)
-        if let pct = PackageInspector.parsePercentage(from: line) {
-            progress = pct / 100.0
+        let sublines = line.components(separatedBy: CharacterSet(charactersIn: "\r\n"))
+        for subline in sublines where !subline.isEmpty {
+            outputLines.append(subline)
+            parseProgress(from: subline)
         }
-        // Also try matching the raw format with whitespace trimmed
+    }
+
+    private func parseProgress(from line: String) {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.hasPrefix("installer:") && trimmed.contains("%") {
-            let parts = trimmed.components(separatedBy: ":")
-            if parts.count >= 3, let value = Double(parts.last?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "") {
-                progress = min(value / 100.0, 1.0)
+
+        // Match: "installer:%percent:42.5", "%percent:42.5", "PERCENT:42.5"
+        if let range = trimmed.range(of: #"[%]?percent[:\s]+(\d+\.?\d*)"#, options: [.regularExpression, .caseInsensitive]) {
+            let match = trimmed[range]
+            if let numRange = match.range(of: #"\d+\.?\d*"#, options: .regularExpression) {
+                if let value = Double(match[numRange]) {
+                    progress = min(value / 100.0, 1.0)
+                }
             }
         }
     }
