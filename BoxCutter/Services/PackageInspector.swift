@@ -1,22 +1,22 @@
 import Foundation
 
-actor PackageInspector {
+enum PackageInspector {
 
     enum InspectionError: LocalizedError {
         case fileNotFound(URL)
         case notAPackage(URL)
-        case inspectionFailed(String)
 
         var errorDescription: String? {
             switch self {
             case .fileNotFound(let url): return "File not found: \(url.path)"
             case .notAPackage(let url): return "Not a .pkg file: \(url.lastPathComponent)"
-            case .inspectionFailed(let msg): return "Inspection failed: \(msg)"
             }
         }
     }
 
-    func inspect(url: URL) async throws -> PackageInfo {
+    // MARK: - Quick Inspection (fast — runs on file drop)
+
+    static func inspectQuick(url: URL) async throws -> PackageInfo {
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw InspectionError.fileNotFound(url)
         }
@@ -24,7 +24,7 @@ actor PackageInspector {
             throw InspectionError.notAPackage(url)
         }
 
-        let fileSize = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 ?? 0
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
 
         var info = PackageInfo(
             fileURL: url,
@@ -32,17 +32,11 @@ actor PackageInspector {
             fileSize: fileSize
         )
 
-        async let pkgInfo = fetchPackageInfo(url: url)
-        async let sigInfo = fetchSignatureInfo(url: url)
-        async let payloadFiles = fetchPayloadFiles(url: url)
-        async let scriptInfo = fetchScriptInfo(url: url)
+        // Run pkginfo and signature check in TRUE parallel (detached from actor)
+        async let pkgInfo = Task.detached { try? Self.fetchPackageInfo(url: url) }.value
+        async let sigInfo = Task.detached { try? Self.fetchSignatureInfo(url: url) }.value
 
-        let (pkg, sig, files, scripts) = await (
-            try? pkgInfo,
-            try? sigInfo,
-            try? payloadFiles,
-            try? scriptInfo
-        )
+        let (pkg, sig) = await (pkgInfo, sigInfo)
 
         if let pkg {
             info.packageName = pkg.name
@@ -55,15 +49,28 @@ actor PackageInspector {
             info.signingStatus = sig.status
             info.certificateChain = sig.chain
         }
-        if let files {
-            info.payloadFiles = files
-        }
-        if let scripts {
-            info.hasPreinstallScript = scripts.hasPreinstall
-            info.hasPostinstallScript = scripts.hasPostinstall
-        }
 
         return info
+    }
+
+    // MARK: - Detail Inspection (lazy — runs on "Details" tap)
+
+    static func inspectDetails(info: inout PackageInfo) async {
+        let url = info.fileURL
+
+        async let files = Task.detached { try? Self.fetchPayloadFiles(url: url) }.value
+        async let scripts = Task.detached { try? Self.fetchScriptInfo(url: url) }.value
+
+        let (payloadFiles, scriptInfo) = await (files, scripts)
+
+        if let payloadFiles {
+            info.payloadFiles = payloadFiles
+        }
+        if let scriptInfo {
+            info.hasPreinstallScript = scriptInfo.hasPreinstall
+            info.hasPostinstallScript = scriptInfo.hasPostinstall
+        }
+        info.detailsLoaded = true
     }
 
     // MARK: - CLI Wrappers
@@ -75,7 +82,7 @@ actor PackageInspector {
         let location: String
     }
 
-    private func fetchPackageInfo(url: URL) async throws -> PkgMetadata {
+    private static func fetchPackageInfo(url: URL) throws -> PkgMetadata {
         let output = try runProcess("/usr/sbin/installer", arguments: ["-pkginfo", "-pkg", url.path])
         return parsePkgInfo(output)
     }
@@ -86,12 +93,12 @@ actor PackageInspector {
         let chain: [String]
     }
 
-    private func fetchSignatureInfo(url: URL) async throws -> SignatureInfo {
+    private static func fetchSignatureInfo(url: URL) throws -> SignatureInfo {
         let output = try runProcess("/usr/sbin/pkgutil", arguments: ["--check-signature", url.path])
         return parseSignatureInfo(output)
     }
 
-    private func fetchPayloadFiles(url: URL) async throws -> [String] {
+    private static func fetchPayloadFiles(url: URL) throws -> [String] {
         let output = try runProcess("/usr/sbin/pkgutil", arguments: ["--payload-files", url.path])
         return output.components(separatedBy: "\n").filter { !$0.isEmpty }
     }
@@ -101,7 +108,7 @@ actor PackageInspector {
         let hasPostinstall: Bool
     }
 
-    private func fetchScriptInfo(url: URL) async throws -> ScriptPresence {
+    private static func fetchScriptInfo(url: URL) throws -> ScriptPresence {
         let tmpDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("BoxCutter-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmpDir) }
@@ -127,7 +134,7 @@ actor PackageInspector {
 
     // MARK: - Process Runner
 
-    private func runProcess(_ path: String, arguments: [String]) throws -> String {
+    private static func runProcess(_ path: String, arguments: [String]) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = arguments
@@ -137,8 +144,6 @@ actor PackageInspector {
         process.standardError = pipe
 
         try process.run()
-
-        // Read data BEFORE waitUntilExit to avoid deadlock when pipe buffer fills
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
 
@@ -147,7 +152,7 @@ actor PackageInspector {
 
     // MARK: - Parsers
 
-    private func parsePkgInfo(_ output: String) -> PkgMetadata {
+    private static func parsePkgInfo(_ output: String) -> PkgMetadata {
         var name = ""
         var identifier = ""
         var version = ""
@@ -172,7 +177,7 @@ actor PackageInspector {
         return PkgMetadata(name: name, identifier: identifier, version: version, location: location)
     }
 
-    private func parseSignatureInfo(_ output: String) -> SignatureInfo {
+    private static func parseSignatureInfo(_ output: String) -> SignatureInfo {
         let lines = output.components(separatedBy: "\n")
         var isSigned = false
         var status = "Unsigned"
@@ -198,16 +203,5 @@ actor PackageInspector {
         }
 
         return SignatureInfo(isSigned: isSigned, status: status, chain: chain)
-    }
-
-    /// Parses installer -verboseR percent output lines like "installer:%percent:42.5"
-    static func parsePercentage(from line: String) -> Double? {
-        if line.contains("%percent:") || line.contains("PERCENT:") {
-            let parts = line.components(separatedBy: ":")
-            if let last = parts.last, let value = Double(last.trimmingCharacters(in: .whitespaces)) {
-                return value
-            }
-        }
-        return nil
     }
 }

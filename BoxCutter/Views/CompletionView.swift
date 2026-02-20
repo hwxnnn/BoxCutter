@@ -8,58 +8,46 @@ struct CompletionView: View {
     let onDone: () -> Void
 
     var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: success ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(success ? .green : .red)
 
-            Image(systemName: success ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(success ? .green : .red)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(success ? "Installation Complete" : "Installation Failed")
+                        .font(.headline)
 
-            Text(success ? "Installation Complete" : "Installation Failed")
-                .font(.title2.bold())
+                    if success {
+                        Text(packageName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .textSelection(.enabled)
+                    }
+                }
 
-            Text(packageName)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                Spacer()
 
-            if !success {
-                Text(message)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-                    .textSelection(.enabled)
+                Button("Done") { onDone() }
+                    .keyboardShortcut(.defaultAction)
             }
-
-            Spacer()
-
-            Button("Done") {
-                onDone()
-            }
-            .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
-            .padding(.bottom, 20)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 }
 
 #Preview("Success") {
-    CompletionView(
-        success: true,
-        packageName: "Example Application",
-        message: "Installation completed successfully.",
-        onDone: {}
-    )
-    .frame(width: 520, height: 480)
+    CompletionView(success: true, packageName: "Example", message: "", onDone: {})
+        .frame(width: 360)
 }
 
 #Preview("Failure") {
-    CompletionView(
-        success: false,
-        packageName: "Example Application",
-        message: "Installation failed with exit code 1.",
-        onDone: {}
-    )
-    .frame(width: 520, height: 480)
+    CompletionView(success: false, packageName: "Example", message: "Exit code 1.", onDone: {})
+        .frame(width: 360)
 }

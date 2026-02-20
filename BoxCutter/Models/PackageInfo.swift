@@ -19,4 +19,7 @@ struct PackageInfo: Equatable, Identifiable {
     var payloadFiles: [String] = []
     var hasPreinstallScript: Bool = false
     var hasPostinstallScript: Bool = false
+
+    /// Whether the expensive detail fields (payloadFiles, scripts) have been loaded
+    var detailsLoaded: Bool = false
 }

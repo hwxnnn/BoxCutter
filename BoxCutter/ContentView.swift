@@ -13,56 +13,55 @@ struct ContentView: View {
                 helperBanner
             }
 
-
-
             // Main content based on state
-            Group {
-                switch viewModel.state {
-                case .idle:
-                    DropZoneView(
-                        onFileDrop: { url in viewModel.loadPackage(url: url) },
-                        onSelectFile: { viewModel.selectFile() }
-                    )
+            switch viewModel.state {
+            case .idle:
+                DropZoneView(
+                    onFileDrop: { url in viewModel.loadPackage(url: url) },
+                    onSelectFile: { viewModel.selectFile() }
+                )
 
-                case .inspecting:
-                    VStack {
-                        Spacer()
-                        ProgressView("Inspecting package\u{2026}")
-                        Spacer()
-                    }
-
-                case .packageReady(let info):
-                    PackageInfoView(
-                        info: info,
-                        onCancel: { viewModel.reset() },
-                        onInstall: { viewModel.install(package: info) }
-                    )
-
-                case .installing(let info):
-                    InstallingView(
-                        packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
-                        outputLines: viewModel.outputLines,
-                        progress: viewModel.progress
-                    )
-
-                case .completed(let info):
-                    CompletionView(
-                        success: true,
-                        packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
-                        message: "Installation completed successfully.",
-                        onDone: { viewModel.reset() }
-                    )
-
-                case .failed(let info, let errorMessage):
-                    CompletionView(
-                        success: false,
-                        packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
-                        message: errorMessage,
-                        onDone: { viewModel.reset() }
-                    )
+            case .inspecting:
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text("Inspecting\u{2026}").font(.headline).foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 30)
+
+            case .packageReady(let info):
+                PackageInfoView(
+                    info: info,
+                    onCancel: { viewModel.reset() },
+                    onInstall: { viewModel.install(package: info) },
+                    showDetails: $viewModel.showDetails,
+                    onLoadDetails: { viewModel.loadDetails() }
+                )
+
+            case .installing(let info):
+                InstallingView(
+                    packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
+                    outputLines: viewModel.outputLines,
+                    progress: viewModel.progress,
+                    showDetails: $viewModel.showDetails
+                )
+
+            case .completed(let info):
+                CompletionView(
+                    success: true,
+                    packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
+                    message: "Installation completed successfully.",
+                    onDone: { viewModel.reset() }
+                )
+
+            case .failed(let info, let errorMessage):
+                CompletionView(
+                    success: false,
+                    packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
+                    message: errorMessage,
+                    onDone: { viewModel.reset() }
+                )
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onReceive(NotificationCenter.default.publisher(for: .openPackageFile)) { notification in
             if let url = notification.object as? URL {
@@ -72,36 +71,30 @@ struct ContentView: View {
     }
 
     private var approvalBanner: some View {
-        HStack {
-            Image(systemName: "gear.badge")
-                .foregroundStyle(.orange)
-            Text("Helper needs approval.")
-                .font(.callout)
+        HStack(spacing: 6) {
+            Image(systemName: "gear.badge").foregroundStyle(.orange).font(.caption)
+            Text("Helper needs approval.").font(.caption)
             Spacer()
-            Button("Open System Settings") {
+            Button("System Settings") {
                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!)
             }
-            .controlSize(.small)
+            .controlSize(.mini)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
         .background(.orange.opacity(0.08))
     }
 
     private var helperBanner: some View {
-        HStack {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.yellow)
-            Text("Privileged helper not installed.")
-                .font(.callout)
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow).font(.caption)
+            Text("Helper not installed.").font(.caption)
             Spacer()
-            Button("Install Helper") {
-                viewModel.installHelper()
-            }
-            .controlSize(.small)
+            Button("Install") { viewModel.installHelper() }
+                .controlSize(.mini)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
         .background(.yellow.opacity(0.08))
     }
 }

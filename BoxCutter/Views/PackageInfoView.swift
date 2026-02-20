@@ -5,119 +5,175 @@ struct PackageInfoView: View {
     let info: PackageInfo
     let onCancel: () -> Void
     let onInstall: () -> Void
+    @Binding var showDetails: Bool
+    let onLoadDetails: () -> Void
+
     private let settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack(spacing: 12) {
+            // Compact header — always visible
+            HStack(spacing: 10) {
                 Image(systemName: "shippingbox.fill")
-                    .font(.system(size: 32))
+                    .font(.system(size: 24))
                     .foregroundStyle(.tint)
 
-                VStack(alignment: .leading) {
-                    Text(info.fileName)
-                        .font(.title3.bold())
-                    Text(info.packageName.isEmpty ? info.packageIdentifier : info.packageName)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(info.packageName.isEmpty ? info.fileName : info.packageName)
+                        .font(.headline)
+                        .lineLimit(1)
+
+                    HStack(spacing: 8) {
+                        Text(formattedSize(info.fileSize))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        signBadge
+                    }
                 }
 
                 Spacer()
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
 
-            Divider()
-
-            // Info grid
-            ScrollView {
-                VStack(spacing: 0) {
-                    infoRow("Identifier", info.packageIdentifier.isEmpty ? "N/A" : info.packageIdentifier)
-                    infoRow("Version", info.version.isEmpty ? "N/A" : info.version)
-                    infoRow("Size", formattedSize(info.fileSize))
-                    infoRow("Install Location", info.installLocation)
-                    infoRow("Signing", info.signingStatus)
-
-                    if !info.certificateChain.isEmpty {
-                        infoRow("Certificate", info.certificateChain.joined(separator: " → "))
-                    }
-
-                    // Script warnings
-                    if settings.showScriptWarnings && (info.hasPreinstallScript || info.hasPostinstallScript) {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.yellow)
-                            VStack(alignment: .leading) {
-                                if info.hasPreinstallScript {
-                                    Text("Contains pre-install script")
-                                }
-                                if info.hasPostinstallScript {
-                                    Text("Contains post-install script")
-                                }
-                            }
-                            .font(.callout)
-                            Spacer()
-                        }
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
-                        .background(.yellow.opacity(0.1))
-                    }
-
-                    // Payload files
-                    if settings.showPayloadFiles && !info.payloadFiles.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Files (\(info.payloadFiles.count))")
-                                .font(.headline)
-                                .padding(.horizontal)
-                                .padding(.top, 12)
-
-                            List(info.payloadFiles, id: \.self) { file in
-                                Text(file)
-                                    .font(.system(.caption, design: .monospaced))
-                            }
-                            .frame(height: 160)
-                            .scrollContentBackground(.hidden)
-                        }
-                    }
-                }
+            // Details section
+            if showDetails {
+                Divider()
+                detailsContent
             }
 
             Divider()
 
             // Action bar
-            HStack {
-                Button("Cancel") {
-                    onCancel()
+            HStack(spacing: 8) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showDetails.toggle()
+                    }
+                    if showDetails && !info.detailsLoaded {
+                        onLoadDetails()
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .rotationEffect(.degrees(showDetails ? 90 : 0))
+                        .font(.caption)
+                    Text("Details")
+                        .font(.caption)
                 }
-                .keyboardShortcut(.cancelAction)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
 
                 Spacer()
 
-                Button("Install") {
-                    onInstall()
-                }
-                .keyboardShortcut(.defaultAction)
-                .controlSize(.large)
+                Button("Cancel") { onCancel() }
+                    .keyboardShortcut(.cancelAction)
+
+                Button("Install") { onInstall() }
+                    .keyboardShortcut(.defaultAction)
             }
-            .padding()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
+    }
+
+    // MARK: - Compact signing badge
+
+    private var signBadge: some View {
+        HStack(spacing: 3) {
+            Image(systemName: info.isSigned ? "checkmark.seal.fill" : "xmark.seal.fill")
+                .font(.caption2)
+            Text(info.isSigned ? "Signed" : "Unsigned")
+                .font(.caption2)
+        }
+        .foregroundStyle(info.isSigned ? .green : .orange)
+    }
+
+    // MARK: - Expanded details
+
+    private var detailsContent: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                if !info.packageIdentifier.isEmpty {
+                    infoRow("Identifier", info.packageIdentifier)
+                }
+                if !info.version.isEmpty {
+                    infoRow("Version", info.version)
+                }
+                infoRow("Location", info.installLocation)
+
+                if !info.certificateChain.isEmpty {
+                    infoRow("Certificate", info.certificateChain.joined(separator: " \u{2192} "))
+                }
+
+                // Script warnings
+                if settings.showScriptWarnings && info.detailsLoaded && (info.hasPreinstallScript || info.hasPostinstallScript) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                            .font(.caption)
+                        VStack(alignment: .leading, spacing: 1) {
+                            if info.hasPreinstallScript { Text("Pre-install script").font(.caption) }
+                            if info.hasPostinstallScript { Text("Post-install script").font(.caption) }
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(.yellow.opacity(0.08))
+                }
+
+                // Loading indicator for details
+                if !info.detailsLoaded {
+                    HStack {
+                        ProgressView().controlSize(.mini)
+                        Text("Loading details\u{2026}").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(8)
+                }
+
+                // Payload files
+                if settings.showPayloadFiles && !info.payloadFiles.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Files (\(info.payloadFiles.count))")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+
+                        ForEach(info.payloadFiles.prefix(50), id: \.self) { file in
+                            Text(file)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 1)
+                        }
+                        if info.payloadFiles.count > 50 {
+                            Text("\u{2026}and \(info.payloadFiles.count - 50) more")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .padding(.horizontal, 16)
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .frame(maxHeight: 280)
     }
 
     private func infoRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .top) {
             Text(label)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .frame(width: 120, alignment: .trailing)
-
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(width: 80, alignment: .trailing)
             Text(value)
-                .font(.callout)
+                .font(.caption)
                 .textSelection(.enabled)
-
             Spacer()
         }
-        .padding(.horizontal)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 2)
     }
 
     private func formattedSize(_ bytes: Int64) -> String {
@@ -125,25 +181,16 @@ struct PackageInfoView: View {
     }
 }
 
-#Preview {
+#Preview("Compact") {
     PackageInfoView(
         info: PackageInfo(
             fileURL: URL(fileURLWithPath: "/tmp/Example.pkg"),
-            fileName: "Example.pkg",
-            fileSize: 48_300_000,
-            packageName: "Example Application",
-            packageIdentifier: "com.example.app",
-            version: "2.1.0",
-            installLocation: "/",
-            isSigned: true,
-            signingStatus: "Signed",
-            certificateChain: ["Developer ID Installer: Example Inc", "Developer ID Certification Authority", "Apple Root CA"],
-            payloadFiles: ["/Applications/Example.app", "/usr/local/bin/example-cli"],
-            hasPreinstallScript: false,
-            hasPostinstallScript: true
+            fileName: "Example.pkg", fileSize: 48_300_000,
+            packageName: "Example Application", packageIdentifier: "com.example.app",
+            version: "2.1.0", isSigned: true, signingStatus: "Signed"
         ),
-        onCancel: {},
-        onInstall: {}
+        onCancel: {}, onInstall: {},
+        showDetails: .constant(false), onLoadDetails: {}
     )
-    .frame(width: 520, height: 480)
+    .frame(width: 360)
 }

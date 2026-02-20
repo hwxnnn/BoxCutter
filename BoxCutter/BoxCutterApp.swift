@@ -8,10 +8,10 @@ struct BoxCutterApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .frame(minWidth: 480, minHeight: 400)
+                .frame(minWidth: 320, minHeight: 100)
         }
         .windowResizability(.contentSize)
-        .defaultSize(width: 520, height: 480)
+        .defaultSize(width: 360, height: 180)
 
         Settings {
             SettingsView()

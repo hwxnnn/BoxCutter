@@ -9,11 +9,11 @@ class AppViewModel {
     var state: AppState = .idle
     var outputLines: [String] = []
     var progress: Double = 0
+    var showDetails: Bool = false
 
     let helperManager = HelperManager()
     private let settings = AppSettings.shared
 
-    private let inspector = PackageInspector()
     private let xpcClient = XPCClient()
     private let directInstaller = DirectInstaller()
 
@@ -30,12 +30,13 @@ class AppViewModel {
     // MARK: - Actions
 
     func loadPackage(url: URL) {
+        showDetails = false
+
         if !settings.confirmBeforeInstall {
-            // Skip the info screen — go straight to install
             state = .inspecting(url)
             Task {
                 do {
-                    let info = try await inspector.inspect(url: url)
+                    let info = try await PackageInspector.inspectQuick(url: url)
                     install(package: info)
                 } catch {
                     state = .failed(
@@ -50,7 +51,7 @@ class AppViewModel {
         state = .inspecting(url)
         Task {
             do {
-                let info = try await inspector.inspect(url: url)
+                let info = try await PackageInspector.inspectQuick(url: url)
                 state = .packageReady(info)
             } catch {
                 state = .failed(
@@ -58,6 +59,14 @@ class AppViewModel {
                     errorMessage: error.localizedDescription
                 )
             }
+        }
+    }
+
+    func loadDetails() {
+        guard case .packageReady(var info) = state, !info.detailsLoaded else { return }
+        Task {
+            await PackageInspector.inspectDetails(info: &info)
+            state = .packageReady(info)
         }
     }
 
@@ -70,16 +79,12 @@ class AppViewModel {
             var result: (Bool, String)
 
             if settings.preferHelperDaemon && helperManager.isHelperInstalled {
-                // Try XPC to privileged helper daemon
                 result = await xpcClient.installPackage(atPath: info.fileURL.path)
-
-                // If XPC failed, fall back to AppleScript
                 if !result.0 && result.1.contains("XPC connection error") {
                     outputLines.append("[BoxCutter] Helper unreachable, prompting for password...")
                     result = await directInstaller.installPackage(atPath: info.fileURL.path)
                 }
             } else {
-                // Use AppleScript with password prompt
                 result = await directInstaller.installPackage(atPath: info.fileURL.path)
             }
 
@@ -109,16 +114,14 @@ class AppViewModel {
         state = .idle
         outputLines = []
         progress = 0
+        showDetails = false
     }
 
     func selectFile() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [
-            UTType(filenameExtension: "pkg")!
-        ]
+        panel.allowedContentTypes = [UTType(filenameExtension: "pkg")!]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-
         if panel.runModal() == .OK, let url = panel.url {
             loadPackage(url: url)
         }
@@ -128,7 +131,7 @@ class AppViewModel {
         do {
             try helperManager.installHelper()
         } catch {
-            // Helper install failed — state unchanged, banner remains visible
+            // Helper install failed
         }
     }
 
@@ -144,8 +147,6 @@ class AppViewModel {
 
     private func parseProgress(from line: String) {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Real format: "installer:%23.318767"
         if let range = trimmed.range(of: #"installer:%(\d+\.?\d*)"#, options: .regularExpression) {
             let match = trimmed[range]
             if let numRange = match.range(of: #"\d+\.?\d*"#, options: .regularExpression) {
