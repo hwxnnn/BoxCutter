@@ -4,6 +4,8 @@
 <dict>
     <key>Label</key>
     <string>com.hwxnnn.BoxCutter-Helper</string>
+    <key>BundleProgram</key>
+    <string>Library/LaunchDaemons/BoxCutter Helper</string>
     <key>MachServices</key>
     <dict>
         <key>com.hwxnnn.BoxCutter-Helper</key>
