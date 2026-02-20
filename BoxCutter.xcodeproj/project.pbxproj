@@ -10,6 +10,10 @@
 		D5928B7D2F4849DD0014694F /* SharedConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7B2F4849DD0014694F /* SharedConstants.swift */; };
 		D5928B7E2F4849DD0014694F /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B792F4849DD0014694F /* HelperProtocol.swift */; };
 		D5928B7F2F4849DD0014694F /* ProgressProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7A2F4849DD0014694F /* ProgressProtocol.swift */; };
+		D5928B9D2F4853990014694F /* ProgressProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7A2F4849DD0014694F /* ProgressProtocol.swift */; };
+		D5928B9E2F4853990014694F /* SharedConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7B2F4849DD0014694F /* SharedConstants.swift */; };
+		D5928B9F2F4853990014694F /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B792F4849DD0014694F /* HelperProtocol.swift */; };
+		D5928BA12F4853E80014694F /* BoxCutter Helper in CopyFiles */ = {isa = PBXBuildFile; fileRef = D5928B912F4852EC0014694F /* BoxCutter Helper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -22,6 +26,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		D5928BA02F4853BA0014694F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/LaunchDaemons;
+			dstSubfolderSpec = 1;
+			files = (
+				D5928BA12F4853E80014694F /* BoxCutter Helper in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -32,14 +46,43 @@
 		D5928B912F4852EC0014694F /* BoxCutter Helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "BoxCutter Helper"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D5928BA52F4854110014694F /* Exceptions for "BoxCutter" folder in "BoxCutter" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D5928B412F48413F0014694F /* BoxCutter */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		D5928BA32F4854000014694F /* Exceptions for "BoxCutter Helper" folder in "Copy Files" phase from "BoxCutter" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			attributesByRelativePath = {
+				"com.hwxnnn.BoxCutter-Helper.plist" = (CodeSignOnCopy, );
+			};
+			buildPhase = D5928BA02F4853BA0014694F /* CopyFiles */;
+			membershipExceptions = (
+				"com.hwxnnn.BoxCutter-Helper.plist",
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D5928B442F48413F0014694F /* BoxCutter */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D5928BA52F4854110014694F /* Exceptions for "BoxCutter" folder in "BoxCutter" target */,
+			);
 			path = BoxCutter;
 			sourceTree = "<group>";
 		};
 		D5928B922F4852EC0014694F /* BoxCutter Helper */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D5928BA32F4854000014694F /* Exceptions for "BoxCutter Helper" folder in "Copy Files" phase from "BoxCutter" target */,
+			);
 			path = "BoxCutter Helper";
 			sourceTree = "<group>";
 		};
@@ -102,6 +145,7 @@
 				D5928B3E2F48413F0014694F /* Sources */,
 				D5928B3F2F48413F0014694F /* Frameworks */,
 				D5928B402F48413F0014694F /* Resources */,
+				D5928BA02F4853BA0014694F /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -202,6 +246,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D5928B9D2F4853990014694F /* ProgressProtocol.swift in Sources */,
+				D5928B9E2F4853990014694F /* SharedConstants.swift in Sources */,
+				D5928B9F2F4853990014694F /* HelperProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -337,16 +384,18 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 867PL24QLQ;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BoxCutter/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hwxnnn.BoxCutter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -369,16 +418,18 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 867PL24QLQ;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BoxCutter/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hwxnnn.BoxCutter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -395,9 +446,11 @@
 		D5928B962F4852EC0014694F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 867PL24QLQ;
 				ENABLE_HARDENED_RUNTIME = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
@@ -408,9 +461,11 @@
 		D5928B972F4852EC0014694F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 867PL24QLQ;
 				ENABLE_HARDENED_RUNTIME = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
