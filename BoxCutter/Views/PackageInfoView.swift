@@ -156,16 +156,10 @@ struct PackageInfoView: View {
                             .padding(.horizontal, 16)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            ForEach(info.payloadFiles.prefix(50), id: \.self) { file in
+                            ForEach(info.payloadFiles, id: \.self) { file in
                                 Text(file)
                                     .font(.system(.caption2, design: .monospaced))
                                     .foregroundStyle(.tertiary)
-                                    .padding(.horizontal, 16)
-                            }
-                            if info.payloadFiles.count > 50 {
-                                Text("\u{2026}and \(info.payloadFiles.count - 50) more")
-                                    .font(.caption2)
-                                    .foregroundStyle(.quaternary)
                                     .padding(.horizontal, 16)
                             }
                         }

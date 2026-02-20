@@ -1,8 +1,13 @@
 import SwiftUI
+import ServiceManagement
 
 struct SettingsView: View {
 
     @Bindable private var settings = AppSettings.shared
+    @State private var helperStatus: String = "Checking..."
+    @State private var helperActionError: String?
+
+    private let daemon = SMAppService.daemon(plistName: "com.hwxnnn.BoxCutter-Helper.plist")
 
     var body: some View {
         TabView {
@@ -14,8 +19,12 @@ struct SettingsView: View {
 
             behaviorTab
                 .tabItem { Label("Behavior", systemImage: "gearshape") }
+
+            helperTab
+                .tabItem { Label("Helper", systemImage: "wrench.and.screwdriver") }
         }
-        .frame(width: 420, height: 320)
+        .frame(width: 440, height: 340)
+        .onAppear { refreshHelperStatus() }
     }
 
     // MARK: - Installation Tab
@@ -44,11 +53,6 @@ struct SettingsView: View {
                 }
                 .padding(.leading, 20)
             }
-
-            Divider()
-
-            Toggle("Prefer privileged helper (no password prompt)", isOn: $settings.preferHelperDaemon)
-                .help("When enabled, uses the helper daemon for installation. When disabled, always prompts for password.")
         }
         .padding()
     }
@@ -110,6 +114,123 @@ struct SettingsView: View {
             }
         }
         .padding()
+    }
+
+    // MARK: - Helper Tab
+
+    private var helperTab: some View {
+        Form {
+            Section("Privileged Helper Daemon") {
+                HStack {
+                    Text("Status")
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(helperStatusColor)
+                            .frame(width: 8, height: 8)
+                        Text(helperStatus)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle("Prefer helper over password prompts", isOn: $settings.preferHelperDaemon)
+                    .help("When disabled, BoxCutter always uses password prompts instead of the helper daemon.")
+            }
+
+            Divider()
+
+            Section("Actions") {
+                HStack(spacing: 12) {
+                    Button("Install Helper") {
+                        do {
+                            try? daemon.unregister()
+                            try daemon.register()
+                            helperActionError = nil
+                        } catch {
+                            helperActionError = error.localizedDescription
+                        }
+                        refreshHelperStatus()
+                    }
+
+                    Button("Uninstall Helper") {
+                        do {
+                            try daemon.unregister()
+                            helperActionError = nil
+                        } catch {
+                            helperActionError = error.localizedDescription
+                        }
+                        refreshHelperStatus()
+                    }
+
+                    Spacer()
+
+                    Button("Refresh") {
+                        helperActionError = nil
+                        refreshHelperStatus()
+                    }
+                }
+
+                if let error = helperActionError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            Divider()
+
+            Section("Info") {
+                HStack {
+                    Text("Service name")
+                    Spacer()
+                    Text("com.hwxnnn.BoxCutter-Helper")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
+                HStack {
+                    Text("Mach service")
+                    Spacer()
+                    Text("com.hwxnnn.BoxCutter-Helper")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
+                Button("Open Login Items in System Settings") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!)
+                }
+            }
+        }
+        .padding()
+    }
+
+    // MARK: - Helper Status
+
+    private var helperStatusColor: Color {
+        switch daemon.status {
+        case .enabled: return .green
+        case .requiresApproval: return .orange
+        case .notRegistered: return .red
+        case .notFound: return .red
+        @unknown default: return .gray
+        }
+    }
+
+    private func refreshHelperStatus() {
+        switch daemon.status {
+        case .enabled:
+            helperStatus = "Installed & Running"
+        case .requiresApproval:
+            helperStatus = "Needs Approval"
+        case .notRegistered:
+            helperStatus = "Not Installed"
+        case .notFound:
+            helperStatus = "Not Found"
+        @unknown default:
+            helperStatus = "Unknown"
+        }
     }
 }
 
