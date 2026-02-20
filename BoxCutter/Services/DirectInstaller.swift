@@ -7,8 +7,19 @@ class DirectInstaller {
     var onOutputLine: ((String) -> Void)?
 
     func installPackage(atPath path: String) async -> (Bool, String) {
-        // Escape backslashes and double quotes for AppleScript string
-        let escaped = path
+        // Copy pkg to /tmp/ so the privileged process can access it
+        // (macOS TCC blocks root from reading ~/Downloads, ~/Desktop, etc.)
+        let fileName = URL(fileURLWithPath: path).lastPathComponent
+        let tmpPath = "/tmp/BoxCutter-\(UUID().uuidString)-\(fileName)"
+        defer { try? FileManager.default.removeItem(atPath: tmpPath) }
+
+        do {
+            try FileManager.default.copyItem(atPath: path, toPath: tmpPath)
+        } catch {
+            return (false, "Failed to prepare package: \(error.localizedDescription)")
+        }
+
+        let escaped = tmpPath
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
 
