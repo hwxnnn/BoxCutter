@@ -145,13 +145,12 @@ class AppViewModel {
     private func parseProgress(from line: String) {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Match: "installer:%percent:42.5", "%percent:42.5", "PERCENT:42.5"
-        if let range = trimmed.range(of: #"[%]?percent[:\s]+(\d+\.?\d*)"#, options: [.regularExpression, .caseInsensitive]) {
+        // Real format: "installer:%23.318767"
+        if let range = trimmed.range(of: #"installer:%(\d+\.?\d*)"#, options: .regularExpression) {
             let match = trimmed[range]
             if let numRange = match.range(of: #"\d+\.?\d*"#, options: .regularExpression) {
                 if let value = Double(match[numRange]) {
                     let newProgress = min(value / 100.0, 1.0)
-                    // Only move forward — never decrease
                     if newProgress > progress {
                         progress = newProgress
                     }
