@@ -100,7 +100,7 @@ enum DMGService {
         }
 
         let totalFiles = source.fileCount
-        var copiedFiles = 0
+        nonisolated(unsafe) var copiedFiles = 0
 
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()

@@ -41,7 +41,6 @@ struct DMGAppInfoView: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? Color.accentColor : Color.gray)
                     .font(.body)
-                    .onTapGesture { onToggleApp(app) }
             }
 
             // App icon
