@@ -8,8 +8,12 @@ struct BoxCutterApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .frame(minWidth: 320, minHeight: 100)
+                .fixedSize()
+                .toolbar(removing: .title)
+                .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+                .containerBackground(.thickMaterial, for: .window)
         }
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultSize(width: 360, height: 180)
 

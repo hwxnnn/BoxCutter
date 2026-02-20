@@ -63,6 +63,9 @@ struct ContentView: View {
                 )
             }
         }
+        .frame(width: 360)
+        .animation(.easeInOut(duration: 0.25), value: viewModel.showDetails)
+        .animation(.easeInOut(duration: 0.2), value: viewModel.state)
         .onReceive(NotificationCenter.default.publisher(for: .openPackageFile)) { notification in
             if let url = notification.object as? URL {
                 viewModel.loadPackage(url: url)
