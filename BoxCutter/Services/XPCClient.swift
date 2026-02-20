@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 class XPCClient {
 
     private var connection: NSXPCConnection?
@@ -18,7 +19,9 @@ class XPCClient {
         conn.exportedObject = ProgressHandler(client: self)
 
         conn.invalidationHandler = { [weak self] in
-            self?.connection = nil
+            Task { @MainActor in
+                self?.connection = nil
+            }
         }
 
         conn.resume()

@@ -137,9 +137,11 @@ actor PackageInspector {
         process.standardError = pipe
 
         try process.run()
+
+        // Read data BEFORE waitUntilExit to avoid deadlock when pipe buffer fills
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         return String(data: data, encoding: .utf8) ?? ""
     }
 

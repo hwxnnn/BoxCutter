@@ -56,12 +56,22 @@ In the same or a new Copy Files phase:
    - Role: `Viewer`
    - Handler Rank: `Alternate`
 
-## 7. Set Deployment Target
+## 7. Disable App Sandbox
+
+The main app spawns child processes (`pkgutil`, `installer` for inspection) and communicates with a privileged LaunchDaemon via XPC. The default App Sandbox blocks both.
+
+1. Select the **BoxCutter** target > **Build Settings**
+2. Search for "App Sandbox"
+3. Set **Enable App Sandbox** to **No**
+
+Alternatively, if you want to keep the sandbox, you'd need to add exceptions for process execution and Mach service lookup, which is complex and not recommended for this app.
+
+## 8. Set Deployment Target
 
 Both targets should have:
 - macOS Deployment Target: **15.0**
 
-## 8. Code Signing
+## 9. Code Signing
 
 Both the main app and helper must be signed with the same team:
 - Select each target > **Signing & Capabilities**
@@ -69,3 +79,5 @@ Both the main app and helper must be signed with the same team:
 - Select your development team
 
 The helper needs to run as root, so proper code signing is essential for SMAppService registration.
+
+**Important:** Update the team ID in `Helper/HelperDelegate.swift` — find the `TEAMID` placeholder in the `validateClient` method and replace it with your actual Apple Developer Team ID.

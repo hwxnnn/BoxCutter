@@ -9,14 +9,6 @@ struct BoxCutterApp: App {
         WindowGroup {
             ContentView()
                 .frame(minWidth: 480, minHeight: 400)
-                .onOpenURL { url in
-                    if url.pathExtension.lowercased() == "pkg" {
-                        NotificationCenter.default.post(
-                            name: .openPackageFile,
-                            object: url
-                        )
-                    }
-                }
         }
         .windowResizability(.contentSize)
         .defaultSize(width: 520, height: 480)
