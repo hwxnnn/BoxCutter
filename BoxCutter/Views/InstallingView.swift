@@ -10,9 +10,9 @@ struct InstallingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Compact header + progress
-            VStack(spacing: 8) {
-                HStack {
+            // Header + progress
+            VStack(spacing: 10) {
+                HStack(spacing: 8) {
                     ProgressView()
                         .controlSize(.mini)
                     Text("Installing \(packageName)\u{2026}")
@@ -22,21 +22,23 @@ struct InstallingView: View {
                 }
 
                 if settings.showProgressBar {
-                    ProgressView(value: progress)
-                        .progressViewStyle(.linear)
+                    VStack(spacing: 4) {
+                        ProgressView(value: progress)
+                            .progressViewStyle(.linear)
 
-                    Text("\(Int(progress * 100))%")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        Text("\(Int(progress * 100))%")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(16)
 
-            // Details toggle
+            // Verbose log (expanded)
             if showDetails && settings.showVerboseOutput {
                 Divider()
+                    .padding(.horizontal, 16)
 
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -49,7 +51,7 @@ struct InstallingView: View {
                                     .id(index)
                             }
                         }
-                        .padding(6)
+                        .padding(8)
                     }
                     .background(.background.secondary)
                     .frame(maxHeight: 260)
@@ -62,19 +64,23 @@ struct InstallingView: View {
             }
 
             Divider()
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
 
             // Details button
             HStack {
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
                         showDetails.toggle()
                     }
                 } label: {
-                    Image(systemName: "chevron.right")
-                        .rotationEffect(.degrees(showDetails ? 90 : 0))
-                        .font(.caption)
-                    Text("Details")
-                        .font(.caption)
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.right")
+                            .rotationEffect(.degrees(showDetails ? 90 : 0))
+                            .font(.caption2)
+                        Text("Details")
+                            .font(.caption)
+                    }
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
@@ -82,7 +88,7 @@ struct InstallingView: View {
                 Spacer()
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 6)
+            .padding(.vertical, 10)
         }
     }
 }

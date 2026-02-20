@@ -6,19 +6,19 @@ struct PackageInfoView: View {
     let onCancel: () -> Void
     let onInstall: () -> Void
     @Binding var showDetails: Bool
-    let onLoadDetails: () -> Void
+    let detailsLoading: Bool
 
     private let settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            // Compact header — always visible
-            HStack(spacing: 10) {
+            // Compact header
+            HStack(spacing: 12) {
                 Image(systemName: "shippingbox.fill")
-                    .font(.system(size: 24))
+                    .font(.system(size: 26))
                     .foregroundStyle(.tint)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(info.packageName.isEmpty ? info.fileName : info.packageName)
                         .font(.headline)
                         .lineLimit(1)
@@ -34,35 +34,47 @@ struct PackageInfoView: View {
 
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(16)
 
-            // Details section
-            if showDetails {
+            // Expanded details
+            if showDetails && info.detailsLoaded {
                 Divider()
+                    .padding(.horizontal, 16)
+
                 detailsContent
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             Divider()
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
 
-            // Action bar
-            HStack(spacing: 8) {
+            // Bottom bar
+            HStack(spacing: 10) {
+                // Details toggle
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showDetails.toggle()
-                    }
-                    if showDetails && !info.detailsLoaded {
-                        onLoadDetails()
+                    if info.detailsLoaded {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            showDetails.toggle()
+                        }
                     }
                 } label: {
-                    Image(systemName: "chevron.right")
-                        .rotationEffect(.degrees(showDetails ? 90 : 0))
-                        .font(.caption)
-                    Text("Details")
-                        .font(.caption)
+                    HStack(spacing: 4) {
+                        if detailsLoading {
+                            ProgressView()
+                                .controlSize(.mini)
+                        } else {
+                            Image(systemName: "chevron.right")
+                                .rotationEffect(.degrees(showDetails ? 90 : 0))
+                                .font(.caption2)
+                        }
+                        Text("Details")
+                            .font(.caption)
+                    }
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(detailsLoading ? .tertiary : .secondary)
+                .disabled(detailsLoading)
 
                 Spacer()
 
@@ -73,11 +85,11 @@ struct PackageInfoView: View {
                     .keyboardShortcut(.defaultAction)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
         }
     }
 
-    // MARK: - Compact signing badge
+    // MARK: - Signing badge
 
     private var signBadge: some View {
         HStack(spacing: 3) {
@@ -107,38 +119,29 @@ struct PackageInfoView: View {
                 }
 
                 // Script warnings
-                if settings.showScriptWarnings && info.detailsLoaded && (info.hasPreinstallScript || info.hasPostinstallScript) {
+                if settings.showScriptWarnings && (info.hasPreinstallScript || info.hasPostinstallScript) {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.yellow)
                             .font(.caption)
-                        VStack(alignment: .leading, spacing: 1) {
+                        VStack(alignment: .leading, spacing: 2) {
                             if info.hasPreinstallScript { Text("Pre-install script").font(.caption) }
                             if info.hasPostinstallScript { Text("Post-install script").font(.caption) }
                         }
                         Spacer()
                     }
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
                     .background(.yellow.opacity(0.08))
-                }
-
-                // Loading indicator for details
-                if !info.detailsLoaded {
-                    HStack {
-                        ProgressView().controlSize(.mini)
-                        Text("Loading details\u{2026}").font(.caption).foregroundStyle(.secondary)
-                    }
-                    .padding(8)
                 }
 
                 // Payload files
                 if settings.showPayloadFiles && !info.payloadFiles.isEmpty {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Files (\(info.payloadFiles.count))")
                             .font(.caption.bold())
                             .padding(.horizontal, 16)
-                            .padding(.top, 8)
+                            .padding(.top, 10)
 
                         ForEach(info.payloadFiles.prefix(50), id: \.self) { file in
                             Text(file)
@@ -154,9 +157,10 @@ struct PackageInfoView: View {
                                 .padding(.horizontal, 16)
                         }
                     }
+                    .padding(.bottom, 4)
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
         }
         .frame(maxHeight: 280)
     }
@@ -173,7 +177,7 @@ struct PackageInfoView: View {
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
     }
 
     private func formattedSize(_ bytes: Int64) -> String {
@@ -190,7 +194,21 @@ struct PackageInfoView: View {
             version: "2.1.0", isSigned: true, signingStatus: "Signed"
         ),
         onCancel: {}, onInstall: {},
-        showDetails: .constant(false), onLoadDetails: {}
+        showDetails: .constant(false), detailsLoading: false
+    )
+    .frame(width: 360)
+}
+
+#Preview("Loading") {
+    PackageInfoView(
+        info: PackageInfo(
+            fileURL: URL(fileURLWithPath: "/tmp/Example.pkg"),
+            fileName: "Example.pkg", fileSize: 48_300_000,
+            packageName: "Example Application", packageIdentifier: "com.example.app",
+            version: "2.1.0", isSigned: true, signingStatus: "Signed"
+        ),
+        onCancel: {}, onInstall: {},
+        showDetails: .constant(false), detailsLoading: true
     )
     .frame(width: 360)
 }

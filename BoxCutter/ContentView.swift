@@ -35,7 +35,7 @@ struct ContentView: View {
                     onCancel: { viewModel.reset() },
                     onInstall: { viewModel.install(package: info) },
                     showDetails: $viewModel.showDetails,
-                    onLoadDetails: { viewModel.loadDetails() }
+                    detailsLoading: viewModel.detailsLoading
                 )
 
             case .installing(let info):

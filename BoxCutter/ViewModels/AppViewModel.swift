@@ -10,6 +10,7 @@ class AppViewModel {
     var outputLines: [String] = []
     var progress: Double = 0
     var showDetails: Bool = false
+    var detailsLoading: Bool = false
 
     let helperManager = HelperManager()
     private let settings = AppSettings.shared
@@ -53,6 +54,8 @@ class AppViewModel {
             do {
                 let info = try await PackageInspector.inspectQuick(url: url)
                 state = .packageReady(info)
+                // Start loading details in the background immediately
+                loadDetails()
             } catch {
                 state = .failed(
                     PackageInfo(fileURL: url, fileName: url.lastPathComponent, fileSize: 0),
@@ -64,8 +67,10 @@ class AppViewModel {
 
     func loadDetails() {
         guard case .packageReady(var info) = state, !info.detailsLoaded else { return }
+        detailsLoading = true
         Task {
             await PackageInspector.inspectDetails(info: &info)
+            detailsLoading = false
             state = .packageReady(info)
         }
     }
