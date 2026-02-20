@@ -275,6 +275,13 @@ class AppViewModel {
         quarantineFixedApps = []
     }
 
+    func uninstallInstalledApps(_ apps: [InstalledApp]) {
+        for app in apps {
+            try? FileManager.default.trashItem(at: app.installedURL, resultingItemURL: nil)
+        }
+        reset()
+    }
+
     func removeQuarantine(app: InstalledApp) {
         Task {
             let success = await DMGService.removeQuarantine(at: app.installedURL)

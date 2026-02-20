@@ -94,6 +94,7 @@ struct ContentView: View {
                     apps: apps,
                     quarantineFixedApps: viewModel.quarantineFixedApps,
                     onDone: { NSApplication.shared.terminate(nil) },
+                    onUninstall: { viewModel.uninstallInstalledApps(apps) },
                     onShowInFinder: { app in viewModel.revealInstalledApp(app) },
                     onOpenApp: { app in viewModel.openInstalledApp(app) },
                     onFixQuarantine: { app in viewModel.removeQuarantine(app: app) }

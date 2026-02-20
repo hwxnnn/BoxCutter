@@ -20,6 +20,7 @@ struct DMGInstallingView: View {
                             Text(app.appName)
                                 .font(.headline)
                                 .lineLimit(1)
+                                .foregroundStyle(pct >= 1.0 ? .secondary : .primary)
                             Spacer()
                             if pct >= 1.0 {
                                 Image(systemName: "checkmark.circle.fill")
@@ -38,8 +39,10 @@ struct DMGInstallingView: View {
                                 }
                             }
                         }
-                        ProgressView(value: pct)
-                            .progressViewStyle(.linear)
+                        if pct < 1.0 {
+                            ProgressView(value: pct)
+                                .progressViewStyle(.linear)
+                        }
                     }
                 }
             }

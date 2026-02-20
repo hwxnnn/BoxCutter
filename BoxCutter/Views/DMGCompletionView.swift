@@ -5,6 +5,7 @@ struct DMGCompletionView: View {
     let apps: [InstalledApp]
     let quarantineFixedApps: Set<URL>
     let onDone: () -> Void
+    let onUninstall: () -> Void
     let onShowInFinder: (InstalledApp) -> Void
     let onOpenApp: (InstalledApp) -> Void
     let onFixQuarantine: (InstalledApp) -> Void
@@ -51,6 +52,9 @@ struct DMGCompletionView: View {
                 .padding(.horizontal, 16)
 
             HStack(spacing: 8) {
+                Button("Uninstall") { onUninstall() }
+                    .foregroundStyle(.red)
+
                 Spacer()
 
                 if let first = apps.first {
@@ -99,40 +103,32 @@ struct DMGCompletionView: View {
     }
 }
 
-#Preview("Unsigned") {
+#Preview("Signed") {
     DMGCompletionView(
-        apps: [
-            InstalledApp(
-                appName: "MyApp",
-                installedURL: URL(fileURLWithPath: "/Applications/MyApp.app"),
-                bundleIdentifier: "com.example.myapp",
-                isCodeSigned: false
-            )
-        ],
+        apps: [InstalledApp(
+            appName: "MyApp",
+            installedURL: URL(fileURLWithPath: "/Applications/MyApp.app"),
+            bundleIdentifier: "com.example.myapp",
+            isCodeSigned: true
+        )],
         quarantineFixedApps: [],
-        onDone: {},
-        onShowInFinder: { _ in },
-        onOpenApp: { _ in },
-        onFixQuarantine: { _ in }
+        onDone: {}, onUninstall: {},
+        onShowInFinder: { _ in }, onOpenApp: { _ in }, onFixQuarantine: { _ in }
     )
     .frame(width: 400)
 }
 
-#Preview("Fixed") {
+#Preview("Unsigned") {
     DMGCompletionView(
-        apps: [
-            InstalledApp(
-                appName: "MyApp",
-                installedURL: URL(fileURLWithPath: "/Applications/MyApp.app"),
-                bundleIdentifier: "com.example.myapp",
-                isCodeSigned: false
-            )
-        ],
-        quarantineFixedApps: [URL(fileURLWithPath: "/Applications/MyApp.app")],
-        onDone: {},
-        onShowInFinder: { _ in },
-        onOpenApp: { _ in },
-        onFixQuarantine: { _ in }
+        apps: [InstalledApp(
+            appName: "MyApp",
+            installedURL: URL(fileURLWithPath: "/Applications/MyApp.app"),
+            bundleIdentifier: "com.example.myapp",
+            isCodeSigned: false
+        )],
+        quarantineFixedApps: [],
+        onDone: {}, onUninstall: {},
+        onShowInFinder: { _ in }, onOpenApp: { _ in }, onFixQuarantine: { _ in }
     )
     .frame(width: 400)
 }
