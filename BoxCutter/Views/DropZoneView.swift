@@ -23,7 +23,7 @@ struct DropZoneView: View {
             }
             .controlSize(.small)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, minHeight: 160)
         .background(isTargeted ? Color.accentColor.opacity(0.06) : Color.clear)
         .contentShape(Rectangle())
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in

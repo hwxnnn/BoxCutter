@@ -69,9 +69,7 @@ struct InstallingView: View {
 
             HStack {
                 Button {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showDetails.toggle()
-                    }
+                    showDetails.toggle()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.right")

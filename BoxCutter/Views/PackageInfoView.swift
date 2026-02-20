@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct PackageInfoView: View {
 
@@ -37,11 +38,15 @@ struct PackageInfoView: View {
 
     // MARK: - Header
 
+    private var pkgIcon: NSImage {
+        NSWorkspace.shared.icon(for: UTType(filenameExtension: "pkg") ?? .package)
+    }
+
     private var header: some View {
         HStack(spacing: 12) {
-            Image(systemName: "shippingbox.fill")
-                .font(.system(size: 26))
-                .foregroundStyle(.tint)
+            Image(nsImage: pkgIcon)
+                .resizable()
+                .frame(width: 32, height: 32)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(info.packageName.isEmpty ? info.fileName : info.packageName)
@@ -67,9 +72,7 @@ struct PackageInfoView: View {
         HStack(spacing: 10) {
             Button {
                 if info.detailsLoaded {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        showDetails.toggle()
-                    }
+                    showDetails.toggle()
                 }
             } label: {
                 HStack(spacing: 4) {
