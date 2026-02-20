@@ -14,6 +14,7 @@
 		D5928B9E2F4853990014694F /* SharedConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7B2F4849DD0014694F /* SharedConstants.swift */; };
 		D5928B9F2F4853990014694F /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B792F4849DD0014694F /* HelperProtocol.swift */; };
 		D5928BA12F4853E80014694F /* BoxCutter Helper in CopyFiles */ = {isa = PBXBuildFile; fileRef = D5928B912F4852EC0014694F /* BoxCutter Helper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		D5928BA72F48583F0014694F /* BoxCutter.icon in Resources */ = {isa = PBXBuildFile; fileRef = D5928BA62F48583F0014694F /* BoxCutter.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,6 +45,7 @@
 		D5928B7A2F4849DD0014694F /* ProgressProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressProtocol.swift; sourceTree = "<group>"; };
 		D5928B7B2F4849DD0014694F /* SharedConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedConstants.swift; sourceTree = "<group>"; };
 		D5928B912F4852EC0014694F /* BoxCutter Helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "BoxCutter Helper"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D5928BA62F48583F0014694F /* BoxCutter.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = BoxCutter.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -109,6 +111,7 @@
 		D5928B392F48413F0014694F = {
 			isa = PBXGroup;
 			children = (
+				D5928BA62F48583F0014694F /* BoxCutter.icon */,
 				D5928B442F48413F0014694F /* BoxCutter */,
 				D5928B922F4852EC0014694F /* BoxCutter Helper */,
 				D5928B432F48413F0014694F /* Products */,
@@ -226,6 +229,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D5928BA72F48583F0014694F /* BoxCutter.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -378,7 +382,7 @@
 		D5928B4E2F4841400014694F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = BoxCutter;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -412,7 +416,7 @@
 		D5928B4F2F4841400014694F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = BoxCutter;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;

@@ -7,7 +7,9 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Helper status banner
-            if !viewModel.helperManager.isHelperInstalled {
+            if viewModel.helperManager.needsApproval {
+                approvalBanner
+            } else if !viewModel.helperManager.isHelperInstalled {
                 helperBanner
             }
 
@@ -65,6 +67,23 @@ struct ContentView: View {
                 viewModel.loadPackage(url: url)
             }
         }
+    }
+
+    private var approvalBanner: some View {
+        HStack {
+            Image(systemName: "gear.badge")
+                .foregroundStyle(.orange)
+            Text("Helper needs approval.")
+                .font(.callout)
+            Spacer()
+            Button("Open System Settings") {
+                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!)
+            }
+            .controlSize(.small)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(.orange.opacity(0.08))
     }
 
     private var helperBanner: some View {
