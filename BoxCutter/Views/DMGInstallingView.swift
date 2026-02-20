@@ -13,7 +13,7 @@ struct DMGInstallingView: View {
                 HStack(spacing: 10) {
                     Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
                         .resizable()
-                        .frame(width: 24, height: 24)
+                        .frame(width: 44, height: 44)
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {

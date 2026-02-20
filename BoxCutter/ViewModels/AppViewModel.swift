@@ -11,12 +11,25 @@ class AppViewModel {
     var progress: Double = 0
     var showDetails: Bool = false
     var detailsLoading: Bool = false
-    var installTarget: String = "/"
+    var installTarget: String = "/" {
+        didSet {
+            let sanitized = sanitizeInstallTarget(installTarget)
+            if sanitized != installTarget {
+                installTarget = sanitized
+                return
+            }
+            if settings.rememberInstallTarget {
+                settings.lastInstallTarget = sanitized
+            }
+        }
+    }
     var showLicense: Bool = false
     var dmgInstallProgress: [URL: Double] = [:]
     var dmgInstallErrors: [String] = []
     var quarantineFixedApps: Set<URL> = []
     var helperInstallError: String?
+    /// When true, "Done" should quit the app instead of returning to idle.
+    var shouldQuitOnDone: Bool = false
 
     private var currentMountPoint: URL?
     private var autoCloseTask: Task<Void, Never>?
@@ -35,6 +48,9 @@ class AppViewModel {
         }
         xpcClient.onOutputLine = outputHandler
         directInstaller.onOutputLine = outputHandler
+        if settings.rememberInstallTarget {
+            installTarget = settings.lastInstallTarget
+        }
     }
 
     // MARK: - Actions
@@ -102,16 +118,20 @@ class AppViewModel {
 
         Task {
             var result: (Bool, String)
+            let resolvedTarget = sanitizeInstallTarget(installTarget)
+            if resolvedTarget != installTarget {
+                installTarget = resolvedTarget
+            }
 
             // I-2: Pass installTarget through to the helper so the Location picker is respected.
             if settings.preferHelperDaemon && helperManager.isHelperInstalled {
-                result = await xpcClient.installPackage(atPath: info.fileURL.path, target: installTarget)
-                if !result.0 && result.1.contains("XPC connection error") {
-                    outputLines.append("[BoxCutter] Helper unreachable, prompting for password...")
-                    result = await directInstaller.installPackage(atPath: info.fileURL.path, target: installTarget)
+                result = await xpcClient.installPackage(atPath: info.fileURL.path, target: resolvedTarget)
+                if !result.0 {
+                    outputLines.append("[BoxCutter] Helper failed (\(result.1)), falling back to password prompt…")
+                    result = await directInstaller.installPackage(atPath: info.fileURL.path, target: resolvedTarget)
                 }
             } else {
-                result = await directInstaller.installPackage(atPath: info.fileURL.path, target: installTarget)
+                result = await directInstaller.installPackage(atPath: info.fileURL.path, target: resolvedTarget)
             }
 
             if result.0 {
@@ -236,6 +256,15 @@ class AppViewModel {
                 // I-5: Preserve any partial errors so the completion view can show them.
                 dmgInstallErrors = errors
                 state = .dmgCompleted(installed)
+
+                if installed.count == 1, let app = installed.first {
+                    if settings.autoRevealSingleDMGApp {
+                        revealInstalledApp(app)
+                    }
+                    if settings.autoOpenSingleDMGApp {
+                        openInstalledApp(app)
+                    }
+                }
             } else {
                 if settings.playSoundOnComplete {
                     NSSound(named: NSSound.Name("Basso"))?.play()
@@ -265,6 +294,14 @@ class AppViewModel {
         )
     }
 
+    func done() {
+        if shouldQuitOnDone {
+            NSApplication.shared.terminate(nil)
+        } else {
+            reset()
+        }
+    }
+
     func reset() {
         autoCloseTask?.cancel()
         autoCloseTask = nil
@@ -277,11 +314,12 @@ class AppViewModel {
         progress = 0
         showDetails = false
         showLicense = false
-        installTarget = "/"
+        installTarget = settings.rememberInstallTarget ? settings.lastInstallTarget : "/"
         dmgInstallProgress = [:]
         dmgInstallErrors = []
         quarantineFixedApps = []
         helperInstallError = nil
+        shouldQuitOnDone = false
     }
 
     // MARK: - Focus-based auto-close
@@ -359,11 +397,11 @@ class AppViewModel {
 
     private func parseProgress(from line: String) {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        // I-1: installer -verboseR emits "installer:%percent:42.5", not "installer:%42.5"
-        if let range = trimmed.range(of: #"installer:%percent:(\d+\.?\d*)"#, options: .regularExpression) {
-            let match = trimmed[range]
+        // Support both "installer:%percent:42.5" and "installer:%42.5" formats
+        if let range = trimmed.range(of: #"installer:%(?:percent:)?(\d+\.?\d*)"#, options: .regularExpression) {
+            let match = String(trimmed[range])
             if let numRange = match.range(of: #"\d+\.?\d*"#, options: .regularExpression) {
-                if let value = Double(match[numRange]) {
+                if let value = Double(String(match[numRange])) {
                     let newProgress = min(value / 100.0, 1.0)
                     if newProgress > progress {
                         progress = newProgress
@@ -371,5 +409,15 @@ class AppViewModel {
                 }
             }
         }
+    }
+
+    private func sanitizeInstallTarget(_ target: String) -> String {
+        let normalized = URL(fileURLWithPath: target).standardized.path
+        guard normalized.hasPrefix("/"),
+              !normalized.contains("/../"),
+              FileManager.default.fileExists(atPath: normalized) else {
+            return "/"
+        }
+        return normalized
     }
 }

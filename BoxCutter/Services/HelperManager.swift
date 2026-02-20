@@ -43,7 +43,11 @@ class HelperManager {
     }
 
     func installHelper() throws {
-        try? daemon.unregister()
+        // Only unregister if already registered, to avoid a race where
+        // unregister invalidates state right before register runs.
+        if daemon.status != .notRegistered && daemon.status != .notFound {
+            try? daemon.unregister()
+        }
         try daemon.register()
         refreshStatus()
 

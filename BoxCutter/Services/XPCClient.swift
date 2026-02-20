@@ -31,15 +31,28 @@ class XPCClient {
     func installPackage(atPath path: String, target: String) async -> (Bool, String) {
         if connection == nil { connect() }
 
+        let once = OnceResume<(Bool, String)>()
+
         return await withCheckedContinuation { continuation in
+            // Start a timeout that invalidates the connection if the helper doesn't respond.
+            let timeoutTask = Task {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else { return }
+                await MainActor.run { self.disconnect() }
+                once.resume(continuation, returning: (false, "Helper did not respond in time."))
+            }
+
             guard let proxy = connection?.remoteObjectProxyWithErrorHandler({ error in
-                continuation.resume(returning: (false, "XPC connection error: \(error.localizedDescription)"))
+                timeoutTask.cancel()
+                once.resume(continuation, returning: (false, "XPC connection error: \(error.localizedDescription)"))
             }) as? HelperProtocol else {
-                continuation.resume(returning: (false, "Failed to create helper proxy."))
+                timeoutTask.cancel()
+                once.resume(continuation, returning: (false, "Failed to create helper proxy."))
                 return
             }
             proxy.installPackage(atPath: path, target: target) { success, message in
-                continuation.resume(returning: (success, message))
+                timeoutTask.cancel()
+                once.resume(continuation, returning: (success, message))
             }
         }
     }
@@ -47,6 +60,21 @@ class XPCClient {
     func disconnect() {
         connection?.invalidate()
         connection = nil
+    }
+}
+
+/// Thread-safe guard ensuring a CheckedContinuation is resumed at most once.
+private final class OnceResume<T>: @unchecked Sendable {
+    private var resumed = false
+    private let lock = NSLock()
+
+    func resume(_ continuation: CheckedContinuation<T, Never>, returning value: T) {
+        lock.lock()
+        let alreadyResumed = resumed
+        resumed = true
+        lock.unlock()
+        guard !alreadyResumed else { return }
+        continuation.resume(returning: value)
     }
 }
 

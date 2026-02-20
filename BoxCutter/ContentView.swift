@@ -3,14 +3,17 @@ import SwiftUI
 struct ContentView: View {
 
     @State private var viewModel = AppViewModel()
+    private let settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            // Helper status banner
-            if viewModel.helperManager.needsApproval {
-                approvalBanner
-            } else if !viewModel.helperManager.isHelperInstalled {
-                helperBanner
+            // Helper status banner (hidden when user opted out of helper)
+            if settings.preferHelperDaemon {
+                if viewModel.helperManager.needsApproval {
+                    approvalBanner
+                } else if !viewModel.helperManager.isHelperInstalled {
+                    helperBanner
+                }
             }
 
             // Main content based on state
@@ -42,7 +45,7 @@ struct ContentView: View {
                 InstallingView(
                     packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
                     outputLines: viewModel.outputLines,
-                    progress: viewModel.progress,
+                    progress: $viewModel.progress,
                     showDetails: $viewModel.showDetails
                 )
 
@@ -51,7 +54,7 @@ struct ContentView: View {
                     success: true,
                     packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
                     message: "Installation completed successfully.",
-                    onDone: { viewModel.reset() }
+                    onDone: { viewModel.done() }
                 )
 
             case .failed(let info, let errorMessage):
@@ -59,7 +62,7 @@ struct ContentView: View {
                     success: false,
                     packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
                     message: errorMessage,
-                    onDone: { viewModel.reset() }
+                    onDone: { viewModel.done() }
                 )
 
             // DMG states
@@ -94,7 +97,7 @@ struct ContentView: View {
                     apps: apps,
                     installErrors: viewModel.dmgInstallErrors,
                     quarantineFixedApps: viewModel.quarantineFixedApps,
-                    onDone: { viewModel.reset() },
+                    onDone: { viewModel.done() },
                     onUninstall: { viewModel.uninstallInstalledApps(apps) },
                     onShowInFinder: { app in viewModel.revealInstalledApp(app) },
                     onOpenApp: { app in viewModel.openInstalledApp(app) },
@@ -106,16 +109,18 @@ struct ContentView: View {
                     success: false,
                     packageName: "Disk Image",
                     message: errorMessage,
-                    onDone: { viewModel.reset() }
+                    onDone: { viewModel.done() }
                 )
             }
         }
         .frame(width: 400)
         .onAppear {
-            AppSettings.shared.applyWindowLevel()
+            settings.applyWindowLevel()
+            showFirstLaunchPromptIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openFile)) { notification in
             if let url = notification.object as? URL {
+                viewModel.shouldQuitOnDone = true
                 viewModel.handleFile(url: url)
             }
         }
@@ -124,6 +129,27 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             viewModel.appDidBecomeActive()
+        }
+    }
+
+    // MARK: - First Launch
+
+    private func showFirstLaunchPromptIfNeeded() {
+        guard !settings.hasShownFirstLaunchPrompt else { return }
+        settings.hasShownFirstLaunchPrompt = true
+
+        let alert = NSAlert()
+        alert.messageText = "Privilege Escalation"
+        alert.informativeText = "BoxCutter needs elevated privileges to install packages.\n\nYou can install a helper daemon that runs silently in the background, or use macOS password prompts each time."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Install Helper")
+        alert.addButton(withTitle: "Use Password Prompts")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            viewModel.installHelper()
+        } else {
+            settings.preferHelperDaemon = false
         }
     }
 

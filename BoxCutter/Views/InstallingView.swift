@@ -4,7 +4,7 @@ struct InstallingView: View {
 
     let packageName: String
     let outputLines: [String]
-    let progress: Double
+    @Binding var progress: Double
     @Binding var showDetails: Bool
     private let settings = AppSettings.shared
 
@@ -95,7 +95,7 @@ struct InstallingView: View {
     InstallingView(
         packageName: "Example",
         outputLines: ["installer: Installing...", "installer:%50.0"],
-        progress: 0.5,
+        progress: .constant(0.5),
         showDetails: .constant(false)
     )
     .frame(width: 400)

@@ -44,7 +44,7 @@ struct DMGAppInfoView: View {
 
             Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
                 .resizable()
-                .frame(width: 32, height: 32)
+                .frame(width: 44, height: 44)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(app.appName)

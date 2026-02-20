@@ -5,6 +5,42 @@ import SwiftUI
 class AppSettings {
     static let shared = AppSettings()
 
+    enum SafetyProfile: String, CaseIterable, Identifiable {
+        case maximum
+        case balanced
+        case fast
+        case custom
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .maximum: return "Maximum Safety"
+            case .balanced: return "Balanced"
+            case .fast: return "Fast Install"
+            case .custom: return "Custom"
+            }
+        }
+    }
+
+    enum OutputProfile: String, CaseIterable, Identifiable {
+        case quiet
+        case balanced
+        case detailed
+        case custom
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .quiet: return "Quiet"
+            case .balanced: return "Balanced"
+            case .detailed: return "Detailed"
+            case .custom: return "Custom"
+            }
+        }
+    }
+
     // MARK: - General
 
     /// Keep the window always on top
@@ -43,6 +79,16 @@ class AppSettings {
         didSet { UserDefaults.standard.set(completionSound, forKey: "completionSound") }
     }
 
+    /// Automatically open installed app after a single-app DMG install
+    var autoOpenSingleDMGApp: Bool {
+        didSet { UserDefaults.standard.set(autoOpenSingleDMGApp, forKey: "autoOpenSingleDMGApp") }
+    }
+
+    /// Automatically reveal installed app in Finder after a single-app DMG install
+    var autoRevealSingleDMGApp: Bool {
+        didSet { UserDefaults.standard.set(autoRevealSingleDMGApp, forKey: "autoRevealSingleDMGApp") }
+    }
+
     // MARK: - Behavior: PKG
 
     /// Ask for confirmation before starting .pkg installation
@@ -53,6 +99,28 @@ class AppSettings {
     /// Trash the original .pkg file after a successful installation
     var trashAfterInstall: Bool {
         didSet { UserDefaults.standard.set(trashAfterInstall, forKey: "trashAfterInstall") }
+    }
+
+    /// Remember selected package install location between installs
+    var rememberInstallTarget: Bool {
+        didSet {
+            UserDefaults.standard.set(rememberInstallTarget, forKey: "rememberInstallTarget")
+            if !rememberInstallTarget {
+                lastInstallTarget = "/"
+            }
+        }
+    }
+
+    /// Last selected package install location
+    var lastInstallTarget: String {
+        didSet {
+            let sanitized = Self.sanitizeInstallTarget(lastInstallTarget)
+            if sanitized != lastInstallTarget {
+                lastInstallTarget = sanitized
+                return
+            }
+            UserDefaults.standard.set(sanitized, forKey: "lastInstallTarget")
+        }
     }
 
     /// Show verbose installer output during installation
@@ -94,6 +162,107 @@ class AppSettings {
         didSet { UserDefaults.standard.set(preferHelperDaemon, forKey: "preferHelperDaemon") }
     }
 
+    /// Whether the first-launch privilege prompt has been shown
+    var hasShownFirstLaunchPrompt: Bool {
+        didSet { UserDefaults.standard.set(hasShownFirstLaunchPrompt, forKey: "hasShownFirstLaunchPrompt") }
+    }
+
+    // MARK: - Presets
+
+    var safetyProfile: SafetyProfile {
+        get {
+            switch (confirmBeforeInstall, trashAfterInstall, confirmBeforeDMGInstall, trashDMGAfterInstall) {
+            case (true, false, true, false):
+                return .maximum
+            case (true, true, true, true):
+                return .balanced
+            case (false, true, false, true):
+                return .fast
+            default:
+                return .custom
+            }
+        }
+        set {
+            switch newValue {
+            case .maximum:
+                confirmBeforeInstall = true
+                trashAfterInstall = false
+                confirmBeforeDMGInstall = true
+                trashDMGAfterInstall = false
+            case .balanced:
+                confirmBeforeInstall = true
+                trashAfterInstall = true
+                confirmBeforeDMGInstall = true
+                trashDMGAfterInstall = true
+            case .fast:
+                confirmBeforeInstall = false
+                trashAfterInstall = true
+                confirmBeforeDMGInstall = false
+                trashDMGAfterInstall = true
+            case .custom:
+                break
+            }
+        }
+    }
+
+    var outputProfile: OutputProfile {
+        get {
+            switch (showVerboseOutput, showProgressBar, showScriptWarnings, showPayloadFiles) {
+            case (false, true, false, false):
+                return .quiet
+            case (true, true, true, false):
+                return .balanced
+            case (true, true, true, true):
+                return .detailed
+            default:
+                return .custom
+            }
+        }
+        set {
+            switch newValue {
+            case .quiet:
+                showVerboseOutput = false
+                showProgressBar = true
+                showScriptWarnings = false
+                showPayloadFiles = false
+            case .balanced:
+                showVerboseOutput = true
+                showProgressBar = true
+                showScriptWarnings = true
+                showPayloadFiles = false
+            case .detailed:
+                showVerboseOutput = true
+                showProgressBar = true
+                showScriptWarnings = true
+                showPayloadFiles = true
+            case .custom:
+                break
+            }
+        }
+    }
+
+    func resetToDefaults() {
+        alwaysOnTop = false
+        autoCloseAfterInstall = false
+        autoCloseDelay = 3.0
+        playSoundOnComplete = true
+        completionSound = "Glass"
+        autoOpenSingleDMGApp = false
+        autoRevealSingleDMGApp = false
+        confirmBeforeInstall = true
+        trashAfterInstall = true
+        rememberInstallTarget = false
+        lastInstallTarget = "/"
+        showVerboseOutput = true
+        showProgressBar = true
+        showScriptWarnings = true
+        showPayloadFiles = true
+        confirmBeforeDMGInstall = true
+        trashDMGAfterInstall = true
+        preferHelperDaemon = true
+        hasShownFirstLaunchPrompt = false
+    }
+
     // MARK: - Init
 
     private init() {
@@ -105,15 +274,20 @@ class AppSettings {
             "autoCloseDelay": 3.0,
             "playSoundOnComplete": true,
             "completionSound": "Glass",
+            "autoOpenSingleDMGApp": false,
+            "autoRevealSingleDMGApp": false,
             "confirmBeforeInstall": true,
             "trashAfterInstall": true,
+            "rememberInstallTarget": false,
+            "lastInstallTarget": "/",
             "showVerboseOutput": true,
             "showProgressBar": true,
             "showScriptWarnings": true,
             "showPayloadFiles": true,
             "confirmBeforeDMGInstall": true,
             "trashDMGAfterInstall": true,
-            "preferHelperDaemon": true
+            "preferHelperDaemon": true,
+            "hasShownFirstLaunchPrompt": false
         ]
         defaults.register(defaults: defaultValues)
 
@@ -122,8 +296,12 @@ class AppSettings {
         autoCloseDelay = defaults.double(forKey: "autoCloseDelay")
         playSoundOnComplete = defaults.bool(forKey: "playSoundOnComplete")
         completionSound = defaults.string(forKey: "completionSound") ?? "Glass"
+        autoOpenSingleDMGApp = defaults.bool(forKey: "autoOpenSingleDMGApp")
+        autoRevealSingleDMGApp = defaults.bool(forKey: "autoRevealSingleDMGApp")
         confirmBeforeInstall = defaults.bool(forKey: "confirmBeforeInstall")
         trashAfterInstall = defaults.bool(forKey: "trashAfterInstall")
+        rememberInstallTarget = defaults.bool(forKey: "rememberInstallTarget")
+        lastInstallTarget = Self.sanitizeInstallTarget(defaults.string(forKey: "lastInstallTarget") ?? "/")
         showVerboseOutput = defaults.bool(forKey: "showVerboseOutput")
         showProgressBar = defaults.bool(forKey: "showProgressBar")
         showScriptWarnings = defaults.bool(forKey: "showScriptWarnings")
@@ -131,5 +309,14 @@ class AppSettings {
         confirmBeforeDMGInstall = defaults.bool(forKey: "confirmBeforeDMGInstall")
         trashDMGAfterInstall = defaults.bool(forKey: "trashDMGAfterInstall")
         preferHelperDaemon = defaults.bool(forKey: "preferHelperDaemon")
+        hasShownFirstLaunchPrompt = defaults.bool(forKey: "hasShownFirstLaunchPrompt")
+    }
+
+    private static func sanitizeInstallTarget(_ path: String) -> String {
+        let normalized = URL(fileURLWithPath: path).standardized.path
+        guard normalized.hasPrefix("/"), !normalized.contains("/../"), !normalized.isEmpty else {
+            return "/"
+        }
+        return normalized
     }
 }
