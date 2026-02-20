@@ -17,11 +17,14 @@ enum DMGError: LocalizedError {
     }
 }
 
+// nonisolated on every method: SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor would otherwise
+// default all static funcs to @MainActor, causing waitUntilExit / directory enumeration
+// to run on the main thread and produce beachballs.
 enum DMGService {
 
     // MARK: - Mount / Unmount
 
-    static func mount(url: URL) async throws -> URL {
+    nonisolated static func mount(url: URL) async throws -> URL {
         let (output, status) = await runProcess(
             "/usr/bin/hdiutil",
             arguments: ["attach", url.path, "-nobrowse", "-plist"]
@@ -35,17 +38,18 @@ enum DMGService {
         return URL(fileURLWithPath: mountPoint)
     }
 
-    static func unmount(mountPoint: URL) {
+    /// Fire-and-forget: does not block the calling thread.
+    nonisolated static func unmount(mountPoint: URL) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
         process.arguments = ["detach", mountPoint.path, "-quiet"]
         try? process.run()
-        process.waitUntilExit()
+        // No waitUntilExit — hdiutil detach runs in the background
     }
 
     // MARK: - App Discovery
 
-    static func findApps(at mountPoint: URL) throws -> [DMGAppEntry] {
+    nonisolated static func findApps(at mountPoint: URL) throws -> [DMGAppEntry] {
         let fm = FileManager.default
         let contents = try fm.contentsOfDirectory(
             at: mountPoint,
@@ -59,7 +63,7 @@ enum DMGService {
         return apps.sorted { $0.appSize > $1.appSize }
     }
 
-    private static func appEntry(at url: URL) -> DMGAppEntry? {
+    nonisolated private static func appEntry(at url: URL) -> DMGAppEntry? {
         let name = url.deletingPathExtension().lastPathComponent
         let plistURL = url.appendingPathComponent("Contents/Info.plist")
         var bundleID = ""
@@ -71,11 +75,9 @@ enum DMGService {
                    ?? ""
         }
 
-        // Check for code signature
         let codeSigPath = url.appendingPathComponent("Contents/_CodeSignature/CodeResources").path
         let isSigned = FileManager.default.fileExists(atPath: codeSigPath)
 
-        // Check if already installed in /Applications
         let installedURL = URL(fileURLWithPath: "/Applications/\(name).app")
         var installedVersion: String? = nil
         if FileManager.default.fileExists(atPath: installedURL.path),
@@ -100,14 +102,13 @@ enum DMGService {
 
     /// Copies an app bundle to /Applications using `ditto`, reporting progress
     /// based on file count. Returns the installed URL on success.
-    static func copyApp(
+    nonisolated static func copyApp(
         from source: DMGAppEntry,
         onProgress: @escaping @Sendable (Double) -> Void
     ) async throws -> URL {
         let destination = URL(fileURLWithPath: "/Applications/\(source.appName).app")
         let fm = FileManager.default
 
-        // Remove existing copy if present
         if fm.fileExists(atPath: destination.path) {
             try? fm.trashItem(at: destination, resultingItemURL: nil)
             if fm.fileExists(atPath: destination.path) {
@@ -131,8 +132,7 @@ enum DMGService {
                 let data = handle.availableData
                 guard !data.isEmpty,
                       let str = String(data: data, encoding: .utf8) else { return }
-                let lines = str.components(separatedBy: .newlines)
-                    .filter { !$0.isEmpty }
+                let lines = str.components(separatedBy: .newlines).filter { !$0.isEmpty }
                 copiedFiles += lines.count
                 let pct = totalFiles > 0
                     ? min(Double(copiedFiles) / Double(totalFiles), 0.99)
@@ -163,9 +163,17 @@ enum DMGService {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Quarantine
 
-    private static func directorySize(at url: URL) -> Int64 {
+    /// Removes quarantine and extended attributes so Gatekeeper allows launch.
+    nonisolated static func removeQuarantine(at url: URL) async -> Bool {
+        let (_, status) = await runProcess("/usr/bin/xattr", arguments: ["-cr", url.path])
+        return status == 0
+    }
+
+    // MARK: - Private helpers
+
+    nonisolated private static func directorySize(at url: URL) -> Int64 {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: url,
@@ -181,7 +189,7 @@ enum DMGService {
         return total
     }
 
-    private static func fileCount(at url: URL) -> Int {
+    nonisolated private static func fileCount(at url: URL) -> Int {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: url,
@@ -193,7 +201,8 @@ enum DMGService {
         return count
     }
 
-    private static func runProcess(
+    /// Non-blocking process runner using terminationHandler instead of waitUntilExit.
+    nonisolated private static func runProcess(
         _ path: String,
         arguments: [String]
     ) async -> (String, Int32) {
@@ -204,27 +213,20 @@ enum DMGService {
             let pipe = Pipe()
             process.standardOutput = pipe
             process.standardError = pipe
-            do {
-                try process.run()
-                process.waitUntilExit()
+            process.terminationHandler = { proc in
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 let output = String(data: data, encoding: .utf8) ?? ""
-                continuation.resume(returning: (output, process.terminationStatus))
+                continuation.resume(returning: (output, proc.terminationStatus))
+            }
+            do {
+                try process.run()
             } catch {
                 continuation.resume(returning: (error.localizedDescription, -1))
             }
         }
     }
 
-    // MARK: - Quarantine
-
-    /// Removes quarantine and extended attributes from an installed app so Gatekeeper allows launch.
-    static func removeQuarantine(at url: URL) async -> Bool {
-        let (_, status) = await runProcess("/usr/bin/xattr", arguments: ["-cr", url.path])
-        return status == 0
-    }
-
-    private static func parseMountPoint(from plistOutput: String) -> String? {
+    nonisolated private static func parseMountPoint(from plistOutput: String) -> String? {
         guard let data = plistOutput.data(using: .utf8),
               let plist = try? PropertyListSerialization.propertyList(
                   from: data, format: nil

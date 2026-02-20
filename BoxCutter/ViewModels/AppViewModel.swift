@@ -132,33 +132,36 @@ class AppViewModel {
 
     func loadDMG(url: URL) {
         state = .dmgMounting(url)
-        Task {
+        Task.detached { [weak self] in
+            guard let self else { return }
             do {
                 let mountPoint = try await DMGService.mount(url: url)
-                currentMountPoint = mountPoint
+                // findApps does expensive directory traversal — keep it off MainActor
                 let apps = try DMGService.findApps(at: mountPoint)
-                let info = DMGInfo(
-                    dmgURL: url,
-                    dmgFileName: url.lastPathComponent,
-                    mountPoint: mountPoint,
-                    apps: apps,
-                    selectedAppIDs: apps.count == 1
-                        ? Set([apps[0].appURL])
-                        : Set()
-                )
-                // Skip the info screen when confirm is off and only one app found
-                if !settings.confirmBeforeDMGInstall && apps.count == 1 {
-                    state = .dmgReady(info)
-                    installSelectedApps()
-                } else {
-                    state = .dmgReady(info)
+                await MainActor.run {
+                    self.currentMountPoint = mountPoint
+                    let info = DMGInfo(
+                        dmgURL: url,
+                        dmgFileName: url.lastPathComponent,
+                        mountPoint: mountPoint,
+                        apps: apps,
+                        selectedAppIDs: apps.count == 1 ? Set([apps[0].appURL]) : Set()
+                    )
+                    if !self.settings.confirmBeforeDMGInstall && apps.count == 1 {
+                        self.state = .dmgReady(info)
+                        self.installSelectedApps()
+                    } else {
+                        self.state = .dmgReady(info)
+                    }
                 }
             } catch {
-                if let mp = currentMountPoint {
-                    DMGService.unmount(mountPoint: mp)
-                    currentMountPoint = nil
+                await MainActor.run {
+                    if let mp = self.currentMountPoint {
+                        DMGService.unmount(mountPoint: mp)
+                        self.currentMountPoint = nil
+                    }
+                    self.state = .dmgFailed(errorMessage: error.localizedDescription)
                 }
-                state = .dmgFailed(errorMessage: error.localizedDescription)
             }
         }
     }
