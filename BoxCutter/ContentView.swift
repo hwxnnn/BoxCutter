@@ -92,8 +92,9 @@ struct ContentView: View {
             case .dmgCompleted(let apps):
                 DMGCompletionView(
                     apps: apps,
+                    installErrors: viewModel.dmgInstallErrors,
                     quarantineFixedApps: viewModel.quarantineFixedApps,
-                    onDone: { NSApplication.shared.terminate(nil) },
+                    onDone: { viewModel.reset() },
                     onUninstall: { viewModel.uninstallInstalledApps(apps) },
                     onShowInFinder: { app in viewModel.revealInstalledApp(app) },
                     onOpenApp: { app in viewModel.openInstalledApp(app) },
@@ -146,7 +147,11 @@ struct ContentView: View {
     private var helperBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow).font(.caption)
-            Text("Helper not installed.").font(.caption)
+            if let err = viewModel.helperInstallError {
+                Text(err).font(.caption).foregroundStyle(.red).lineLimit(1)
+            } else {
+                Text("Helper not installed.").font(.caption)
+            }
             Spacer()
             Button("Install") { viewModel.installHelper() }
                 .controlSize(.mini)

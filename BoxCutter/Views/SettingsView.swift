@@ -1,14 +1,11 @@
 import SwiftUI
-import ServiceManagement
 
 struct SettingsView: View {
 
     @Bindable private var settings = AppSettings.shared
+    private let helperManager = HelperManager.shared
     @State private var selectedTab  = 0
-    @State private var helperStatus = "Checking..."
     @State private var helperActionError: String?
-
-    private let daemon = SMAppService.daemon(plistName: "com.hwxnnn.BoxCutter-Helper.plist")
 
     private let sounds = [
         "Basso", "Blow", "Bottle", "Frog", "Funk", "Glass",
@@ -41,7 +38,7 @@ struct SettingsView: View {
             }
         }
         .frame(width: 460, height: 400)
-        .onAppear { refreshHelperStatus() }
+        .onAppear { helperManager.refreshStatus() }
     }
 
     // MARK: - General
@@ -149,7 +146,14 @@ struct SettingsView: View {
                 HStack {
                     Text("Status")
                     Spacer()
-                    statusPill
+                    HStack(spacing: 5) {
+                        Circle().fill(helperManager.statusColor).frame(width: 6, height: 6)
+                        Text(helperManager.displayStatus).font(.caption.weight(.medium))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(helperManager.statusColor.opacity(0.1), in: Capsule())
+                    .foregroundStyle(helperManager.statusColor)
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 38)
@@ -166,7 +170,7 @@ struct SettingsView: View {
                     Spacer()
                     Button("Refresh") {
                         helperActionError = nil
-                        refreshHelperStatus()
+                        helperManager.refreshStatus()
                     }
                 }
                 .padding(.horizontal, 12)
@@ -210,57 +214,23 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Status
 
-    private var statusColor: Color {
-        switch daemon.status {
-        case .enabled:          return .green
-        case .requiresApproval: return .orange
-        case .notRegistered:    return .red
-        case .notFound:         return .red
-        @unknown default:       return .gray
-        }
-    }
-
-    private var statusPill: some View {
-        HStack(spacing: 5) {
-            Circle().fill(statusColor).frame(width: 6, height: 6)
-            Text(helperStatus).font(.caption.weight(.medium))
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(statusColor.opacity(0.1), in: Capsule())
-        .foregroundStyle(statusColor)
-    }
 
     private func doInstallHelper() {
         do {
-            try? daemon.unregister()
-            try daemon.register()
+            try helperManager.installHelper()
             helperActionError = nil
         } catch {
             helperActionError = error.localizedDescription
         }
-        refreshHelperStatus()
     }
 
     private func doUninstallHelper() {
         do {
-            try daemon.unregister()
+            try helperManager.uninstallHelper()
             helperActionError = nil
         } catch {
             helperActionError = error.localizedDescription
-        }
-        refreshHelperStatus()
-    }
-
-    private func refreshHelperStatus() {
-        switch daemon.status {
-        case .enabled:          helperStatus = "Installed & Running"
-        case .requiresApproval: helperStatus = "Needs Approval"
-        case .notRegistered:    helperStatus = "Not Installed"
-        case .notFound:         helperStatus = "Not Found"
-        @unknown default:       helperStatus = "Unknown"
         }
     }
 

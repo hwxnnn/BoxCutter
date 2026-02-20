@@ -1,51 +1,66 @@
 import Foundation
 import ServiceManagement
+import SwiftUI
 
 @Observable
+@MainActor
 class HelperManager {
+
+    static let shared = HelperManager()
 
     private(set) var isHelperInstalled: Bool = false
     private(set) var needsApproval: Bool = false
-    private(set) var statusDescription: String = "unknown"
 
     private let daemon = SMAppService.daemon(plistName: "com.hwxnnn.BoxCutter-Helper.plist")
+    private var pollingTask: Task<Void, Never>?
 
-    init() {
+    private init() {
         refreshStatus()
     }
 
     func refreshStatus() {
         let status = daemon.status
-        switch status {
-        case .notRegistered: statusDescription = "notRegistered"
-        case .enabled: statusDescription = "enabled"
-        case .requiresApproval: statusDescription = "requiresApproval"
-        case .notFound: statusDescription = "notFound"
-        @unknown default: statusDescription = "unknown(\(status.rawValue))"
-        }
-        NSLog("[HelperManager] status: %@", statusDescription)
         isHelperInstalled = (status == .enabled)
         needsApproval = (status == .requiresApproval)
     }
 
-    func installHelper() throws {
-        // Unregister first to clear any stale registration
-        try? daemon.unregister()
+    var displayStatus: String {
+        switch daemon.status {
+        case .enabled:          return "Installed & Running"
+        case .requiresApproval: return "Needs Approval"
+        case .notRegistered:    return "Not Installed"
+        case .notFound:         return "Not Found"
+        @unknown default:       return "Unknown"
+        }
+    }
 
+    var statusColor: Color {
+        switch daemon.status {
+        case .enabled:          return .green
+        case .requiresApproval: return .orange
+        default:                return .red
+        }
+    }
+
+    func installHelper() throws {
+        try? daemon.unregister()
         try daemon.register()
         refreshStatus()
 
-        // Poll for status changes (user may need to approve in System Settings)
-        Task { @MainActor in
+        pollingTask?.cancel()
+        pollingTask = Task {
             for _ in 0..<10 {
                 try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { return }
                 refreshStatus()
-                if isHelperInstalled { break }
+                if isHelperInstalled { return }
             }
         }
     }
 
     func uninstallHelper() throws {
+        pollingTask?.cancel()
+        pollingTask = nil
         try daemon.unregister()
         refreshStatus()
     }

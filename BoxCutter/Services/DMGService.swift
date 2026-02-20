@@ -191,11 +191,9 @@ enum DMGService {
 
     nonisolated private static func fileCount(at url: URL) -> Int {
         let fm = FileManager.default
-        guard let enumerator = fm.enumerator(
-            at: url,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        ) else { return 0 }
+        // Do NOT skip hidden files — ditto -V counts all files including hidden
+        // ones and ._resource-fork files. Skipping them causes progress to stall at 99%.
+        guard let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: nil) else { return 0 }
         var count = 0
         for _ in enumerator { count += 1 }
         return count

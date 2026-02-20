@@ -3,6 +3,7 @@ import SwiftUI
 struct DMGCompletionView: View {
 
     let apps: [InstalledApp]
+    var installErrors: [String] = []
     let quarantineFixedApps: Set<URL>
     let onDone: () -> Void
     let onUninstall: () -> Void
@@ -31,6 +32,28 @@ struct DMGCompletionView: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
             .padding(.bottom, 12)
+
+            // Partial install errors (some apps failed, others succeeded)
+            if !installErrors.isEmpty {
+                Divider()
+                    .padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(installErrors, id: \.self) { error in
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+            }
 
             // Unsigned app warnings
             let unsignedApps = apps.filter { !$0.isCodeSigned }

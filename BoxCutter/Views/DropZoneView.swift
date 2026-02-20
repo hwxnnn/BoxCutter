@@ -35,7 +35,8 @@ struct DropZoneView: View {
         guard let provider = providers.first else { return false }
         provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { data, _ in
             guard let data = data as? Data,
-                  let urlString = String(data: data, encoding: .utf8),
+                  let urlString = String(data: data, encoding: .utf8)?
+                      .trimmingCharacters(in: .whitespacesAndNewlines),
                   let url = URL(string: urlString),
                   ["pkg", "dmg"].contains(url.pathExtension.lowercased()) else { return }
             DispatchQueue.main.async { onFileDrop(url) }

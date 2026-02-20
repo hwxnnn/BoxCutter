@@ -14,11 +14,14 @@ class AppViewModel {
     var installTarget: String = "/"
     var showLicense: Bool = false
     var dmgInstallProgress: [URL: Double] = [:]
+    var dmgInstallErrors: [String] = []
     var quarantineFixedApps: Set<URL> = []
+    var helperInstallError: String?
+
     private var currentMountPoint: URL?
     private var autoCloseTask: Task<Void, Never>?
 
-    let helperManager = HelperManager()
+    let helperManager = HelperManager.shared
     private let settings = AppSettings.shared
 
     private let xpcClient = XPCClient()
@@ -35,6 +38,16 @@ class AppViewModel {
     }
 
     // MARK: - Actions
+
+    /// I-4: Guard against dropping a new file while an install or mount is in progress.
+    func handleFile(url: URL) {
+        guard case .idle = state else { return }
+        if url.pathExtension.lowercased() == "dmg" {
+            loadDMG(url: url)
+        } else {
+            loadPackage(url: url)
+        }
+    }
 
     func loadPackage(url: URL) {
         showDetails = false
@@ -60,7 +73,6 @@ class AppViewModel {
             do {
                 let info = try await PackageInspector.inspectQuick(url: url)
                 state = .packageReady(info)
-                // Start loading details in the background immediately
                 loadDetails()
             } catch {
                 state = .failed(
@@ -71,19 +83,13 @@ class AppViewModel {
         }
     }
 
-    func handleFile(url: URL) {
-        if url.pathExtension.lowercased() == "dmg" {
-            loadDMG(url: url)
-        } else {
-            loadPackage(url: url)
-        }
-    }
-
     func loadDetails() {
         guard case .packageReady(var info) = state, !info.detailsLoaded else { return }
         detailsLoading = true
         Task {
             await PackageInspector.inspectDetails(info: &info)
+            // I-3: User may have cancelled while details were loading — don't resurrect state.
+            guard case .packageReady = state else { return }
             detailsLoading = false
             state = .packageReady(info)
         }
@@ -97,8 +103,9 @@ class AppViewModel {
         Task {
             var result: (Bool, String)
 
+            // I-2: Pass installTarget through to the helper so the Location picker is respected.
             if settings.preferHelperDaemon && helperManager.isHelperInstalled {
-                result = await xpcClient.installPackage(atPath: info.fileURL.path)
+                result = await xpcClient.installPackage(atPath: info.fileURL.path, target: installTarget)
                 if !result.0 && result.1.contains("XPC connection error") {
                     outputLines.append("[BoxCutter] Helper unreachable, prompting for password...")
                     result = await directInstaller.installPackage(atPath: info.fileURL.path, target: installTarget)
@@ -130,32 +137,34 @@ class AppViewModel {
         state = .dmgMounting(url)
         Task.detached { [weak self] in
             guard let self else { return }
+            // C-2: Capture mountPoint locally so it's available in the catch block
+            // even before currentMountPoint is set on the MainActor.
+            var mountPoint: URL?
             do {
-                let mountPoint = try await DMGService.mount(url: url)
-                // findApps does expensive directory traversal — keep it off MainActor
-                let apps = try DMGService.findApps(at: mountPoint)
+                let mp = try await DMGService.mount(url: url)
+                mountPoint = mp
+                let apps = try DMGService.findApps(at: mp)
                 await MainActor.run {
-                    self.currentMountPoint = mountPoint
+                    self.currentMountPoint = mp
                     let info = DMGInfo(
                         dmgURL: url,
                         dmgFileName: url.lastPathComponent,
-                        mountPoint: mountPoint,
+                        mountPoint: mp,
                         apps: apps,
                         selectedAppIDs: apps.count == 1 ? Set([apps[0].appURL]) : Set()
                     )
+                    // M-8: Hoist the state assignment — both branches set the same value.
+                    self.state = .dmgReady(info)
                     if !self.settings.confirmBeforeDMGInstall && apps.count == 1 {
-                        self.state = .dmgReady(info)
                         self.installSelectedApps()
-                    } else {
-                        self.state = .dmgReady(info)
                     }
                 }
             } catch {
+                if let mp = mountPoint {
+                    DMGService.unmount(mountPoint: mp)
+                }
                 await MainActor.run {
-                    if let mp = self.currentMountPoint {
-                        DMGService.unmount(mountPoint: mp)
-                        self.currentMountPoint = nil
-                    }
+                    self.currentMountPoint = nil
                     self.state = .dmgFailed(errorMessage: error.localizedDescription)
                 }
             }
@@ -179,6 +188,7 @@ class AppViewModel {
 
         state = .dmgInstalling(info)
         dmgInstallProgress = Dictionary(uniqueKeysWithValues: selected.map { ($0.appURL, 0.0) })
+        dmgInstallErrors = []
 
         Task {
             var installed: [InstalledApp] = []
@@ -212,7 +222,6 @@ class AppViewModel {
                 }
             }
 
-            // Unmount and optionally trash
             DMGService.unmount(mountPoint: info.mountPoint)
             currentMountPoint = nil
 
@@ -224,6 +233,8 @@ class AppViewModel {
                 if settings.playSoundOnComplete {
                     NSSound(named: NSSound.Name(settings.completionSound))?.play()
                 }
+                // I-5: Preserve any partial errors so the completion view can show them.
+                dmgInstallErrors = errors
                 state = .dmgCompleted(installed)
             } else {
                 if settings.playSoundOnComplete {
@@ -268,13 +279,13 @@ class AppViewModel {
         showLicense = false
         installTarget = "/"
         dmgInstallProgress = [:]
+        dmgInstallErrors = []
         quarantineFixedApps = []
+        helperInstallError = nil
     }
 
     // MARK: - Focus-based auto-close
 
-    /// Called when the app loses focus. Starts the auto-close countdown if a
-    /// completion state is showing and the setting is enabled.
     func appWillResignActive() {
         guard settings.autoCloseAfterInstall else { return }
         let isComplete: Bool
@@ -292,7 +303,6 @@ class AppViewModel {
         }
     }
 
-    /// Called when the app regains focus. Cancels any pending auto-close countdown.
     func appDidBecomeActive() {
         autoCloseTask?.cancel()
         autoCloseTask = nil
@@ -327,11 +337,13 @@ class AppViewModel {
         }
     }
 
+    /// I-6: Surfaces helper registration errors instead of silently swallowing them.
     func installHelper() {
         do {
             try helperManager.installHelper()
+            helperInstallError = nil
         } catch {
-            // Helper install failed
+            helperInstallError = error.localizedDescription
         }
     }
 
@@ -347,7 +359,8 @@ class AppViewModel {
 
     private func parseProgress(from line: String) {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let range = trimmed.range(of: #"installer:%(\d+\.?\d*)"#, options: .regularExpression) {
+        // I-1: installer -verboseR emits "installer:%percent:42.5", not "installer:%42.5"
+        if let range = trimmed.range(of: #"installer:%percent:(\d+\.?\d*)"#, options: .regularExpression) {
             let match = trimmed[range]
             if let numRange = match.range(of: #"\d+\.?\d*"#, options: .regularExpression) {
                 if let value = Double(match[numRange]) {

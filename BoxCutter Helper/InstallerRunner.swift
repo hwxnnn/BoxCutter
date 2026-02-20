@@ -8,15 +8,18 @@ class InstallerRunner: NSObject, HelperProtocol {
         self.connection = connection
     }
 
-    func installPackage(atPath path: String, withReply reply: @escaping (Bool, String) -> Void) {
+    func installPackage(atPath path: String, target: String, withReply reply: @escaping (Bool, String) -> Void) {
         // Canonicalize path to prevent traversal attacks
         let canonicalPath = URL(fileURLWithPath: path).standardized.path
+        let canonicalTarget = URL(fileURLWithPath: target).standardized.path
 
         guard canonicalPath.hasPrefix("/"),
               canonicalPath.hasSuffix(".pkg"),
               !canonicalPath.contains("/../"),
-              FileManager.default.fileExists(atPath: canonicalPath) else {
-            reply(false, "Invalid package path.")
+              FileManager.default.fileExists(atPath: canonicalPath),
+              canonicalTarget.hasPrefix("/"),
+              !canonicalTarget.contains("/../") else {
+            reply(false, "Invalid package path or target.")
             return
         }
 
@@ -26,7 +29,7 @@ class InstallerRunner: NSObject, HelperProtocol {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/installer")
-        process.arguments = ["-verboseR", "-pkg", canonicalPath, "-target", "/"]
+        process.arguments = ["-verboseR", "-pkg", canonicalPath, "-target", canonicalTarget]
 
         let pipe = Pipe()
         process.standardOutput = pipe

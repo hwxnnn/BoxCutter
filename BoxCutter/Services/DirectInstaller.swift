@@ -81,17 +81,6 @@ class DirectInstaller {
 
         tailTask.cancel()
 
-        // Read any remaining lines the tail didn't catch
-        if let data = FileManager.default.contents(atPath: logFile),
-           let content = String(data: data, encoding: .utf8) {
-            // The tail task handles most lines, but grab the last chunk
-            let allLines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
-            let alreadySent = await MainActor.run { return onOutputLine != nil }
-            if alreadySent {
-                // Final lines will have been picked up by the tail loop
-            }
-        }
-
         return result
     }
 

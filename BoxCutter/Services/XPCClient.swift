@@ -28,7 +28,7 @@ class XPCClient {
         self.connection = conn
     }
 
-    func installPackage(atPath path: String) async -> (Bool, String) {
+    func installPackage(atPath path: String, target: String) async -> (Bool, String) {
         if connection == nil { connect() }
 
         return await withCheckedContinuation { continuation in
@@ -38,7 +38,7 @@ class XPCClient {
                 continuation.resume(returning: (false, "Failed to create helper proxy."))
                 return
             }
-            proxy.installPackage(atPath: path) { success, message in
+            proxy.installPackage(atPath: path, target: target) { success, message in
                 continuation.resume(returning: (success, message))
             }
         }
