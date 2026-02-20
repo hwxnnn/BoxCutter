@@ -66,6 +66,8 @@ class AppViewModel {
             }
 
             if result.0 {
+                // Move the original .pkg to Trash after successful install
+                try? FileManager.default.trashItem(at: info.fileURL, resultingItemURL: nil)
                 state = .completed(info)
             } else {
                 state = .failed(info, errorMessage: result.1)
@@ -106,6 +108,14 @@ class AppViewModel {
         outputLines.append(line)
         if let pct = PackageInspector.parsePercentage(from: line) {
             progress = pct / 100.0
+        }
+        // Also try matching the raw format with whitespace trimmed
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("installer:") && trimmed.contains("%") {
+            let parts = trimmed.components(separatedBy: ":")
+            if parts.count >= 3, let value = Double(parts.last?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "") {
+                progress = min(value / 100.0, 1.0)
+            }
         }
     }
 }
