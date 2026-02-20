@@ -7,25 +7,25 @@ class DirectInstaller {
     var onOutputLine: ((String) -> Void)?
 
     func installPackage(atPath path: String) async -> (Bool, String) {
-        let escaped = path.replacingOccurrences(of: "'", with: "'\\''")
-        let script = "/usr/sbin/installer -verboseR -pkg '\(escaped)' -target / 2>&1"
+        // Escape backslashes and double quotes for AppleScript string
+        let escaped = path
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
+        let appleScript = "do shell script \"/usr/sbin/installer -verboseR -pkg \\\"\(escaped)\\\" -target /\" with administrator privileges"
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = [
-            "-e",
-            "do shell script \"\(script)\" with administrator privileges"
-        ]
+        process.arguments = ["-e", appleScript]
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
 
         return await withCheckedContinuation { continuation in
-            let handle = pipe.fileHandleForReading
+            let handle = stdoutPipe.fileHandleForReading
 
-            // osascript returns all output at once when the command finishes,
-            // but readabilityHandler will fire as data becomes available
             handle.readabilityHandler = { [weak self] fileHandle in
                 let data = fileHandle.availableData
                 guard !data.isEmpty else { return }
@@ -38,22 +38,32 @@ class DirectInstaller {
                 }
             }
 
-            process.terminationHandler = { proc in
+            process.terminationHandler = { [weak self] proc in
                 handle.readabilityHandler = nil
-                // Read any remaining data
+
+                // Read remaining stdout
                 let remaining = handle.readDataToEndOfFile()
                 if !remaining.isEmpty, let str = String(data: remaining, encoding: .utf8) {
                     for line in str.components(separatedBy: "\n") where !line.isEmpty {
-                        DispatchQueue.main.async { [weak self] in
+                        DispatchQueue.main.async {
                             self?.onOutputLine?(line)
                         }
                     }
                 }
 
+                // Read stderr for error details
+                let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                let errStr = String(data: errData, encoding: .utf8) ?? ""
+
                 let success = proc.terminationStatus == 0
-                let message = success
-                    ? "Installation completed successfully."
-                    : "Installation failed with exit code \(proc.terminationStatus)."
+                let message: String
+                if success {
+                    message = "Installation completed successfully."
+                } else if !errStr.isEmpty {
+                    message = errStr.trimmingCharacters(in: .whitespacesAndNewlines)
+                } else {
+                    message = "Installation failed with exit code \(proc.terminationStatus)."
+                }
                 continuation.resume(returning: (success, message))
             }
 
