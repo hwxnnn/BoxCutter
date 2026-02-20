@@ -145,7 +145,13 @@ class AppViewModel {
                         ? Set([apps[0].appURL])
                         : Set()
                 )
-                state = .dmgReady(info)
+                // Skip the info screen when confirm is off and only one app found
+                if !settings.confirmBeforeDMGInstall && apps.count == 1 {
+                    state = .dmgReady(info)
+                    installSelectedApps()
+                } else {
+                    state = .dmgReady(info)
+                }
             } catch {
                 if let mp = currentMountPoint {
                     DMGService.unmount(mountPoint: mp)
@@ -209,7 +215,7 @@ class AppViewModel {
             DMGService.unmount(mountPoint: info.mountPoint)
             currentMountPoint = nil
 
-            if settings.trashAfterInstall {
+            if settings.trashDMGAfterInstall {
                 try? FileManager.default.trashItem(at: info.dmgURL, resultingItemURL: nil)
             }
 
