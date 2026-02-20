@@ -137,9 +137,18 @@ struct PackageInfoView: View {
 
     // MARK: - Expanded details
 
+    private var filteredPayloadFiles: [String] {
+        info.payloadFiles.filter { file in
+            let trimmed = file.trimmingCharacters(in: CharacterSet(charactersIn: "./"))
+            return !trimmed.isEmpty && !file.hasSuffix("/")
+        }
+    }
+
     private var detailsContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
+
+                // — Metadata section
                 VStack(spacing: 0) {
                     if !info.packageIdentifier.isEmpty {
                         infoRow("Identifier", info.packageIdentifier)
@@ -169,48 +178,79 @@ struct PackageInfoView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 3)
-
-                    if !info.certificateChain.isEmpty {
-                        infoRow("Certificate", info.certificateChain.joined(separator: " \u{2192} "))
-                    }
                 }
 
-                // Script warnings
-                if settings.showScriptWarnings && (info.hasPreinstallScript || info.hasPostinstallScript) {
-                    HStack(spacing: 6) {
-                        if info.hasPreinstallScript {
-                            warningPill("Pre-install script")
-                        }
-                        if info.hasPostinstallScript {
-                            warningPill("Post-install script")
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-
-                // Payload files
-                if settings.showPayloadFiles && !info.payloadFiles.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Payload (\(info.payloadFiles.count) files)")
+                // — Security section
+                if !info.certificateChain.isEmpty || (settings.showScriptWarnings && (info.hasPreinstallScript || info.hasPostinstallScript)) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Security")
                             .font(.caption.bold())
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 16)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            ForEach(info.payloadFiles, id: \.self) { file in
-                                Text(file)
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .foregroundStyle(.tertiary)
+                        if !info.certificateChain.isEmpty {
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(Array(info.certificateChain.enumerated()), id: \.offset) { index, cert in
+                                    HStack(spacing: 4) {
+                                        if index == 0 {
+                                            Image(systemName: "checkmark.seal.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.green)
+                                        } else {
+                                            Text(String(repeating: " ", count: 2))
+                                                .font(.caption2)
+                                            Image(systemName: "arrow.turn.down.right")
+                                                .font(.system(size: 8))
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                        Text(cert)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
                                     .padding(.horizontal, 16)
+                                }
                             }
                         }
+
+                        if settings.showScriptWarnings && (info.hasPreinstallScript || info.hasPostinstallScript) {
+                            HStack(spacing: 6) {
+                                if info.hasPreinstallScript { warningPill("Pre-install script") }
+                                if info.hasPostinstallScript { warningPill("Post-install script") }
+                            }
+                            .padding(.horizontal, 16)
+                        }
                     }
-                    .padding(.bottom, 4)
+                }
+
+                // — Payload files section
+                if settings.showPayloadFiles && !filteredPayloadFiles.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Payload (\(filteredPayloadFiles.count) files)")
+                            .font(.caption.bold())
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 16)
+
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 1) {
+                                ForEach(filteredPayloadFiles, id: \.self) { file in
+                                    Text(file)
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: 120)
+                        .background(.background.secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .padding(.horizontal, 16)
+                    }
                 }
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
         }
-        .frame(maxHeight: 280)
+        .frame(maxHeight: 360)
     }
 
     // MARK: - Helpers
