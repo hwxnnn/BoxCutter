@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.hwxnnn.BoxCutter.Helper</string>
+    <string>com.hwxnnn.BoxCutter-Helper</string>
     <key>MachServices</key>
     <dict>
-        <key>com.hwxnnn.BoxCutter.Helper</key>
+        <key>com.hwxnnn.BoxCutter-Helper</key>
         <true/>
     </dict>
 </dict>

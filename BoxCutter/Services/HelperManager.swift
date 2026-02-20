@@ -6,7 +6,7 @@ class HelperManager {
 
     private(set) var isHelperInstalled: Bool = false
 
-    private let daemon = SMAppService.daemon(plistName: "com.hwxnnn.BoxCutter.Helper.plist")
+    private let daemon = SMAppService.daemon(plistName: "com.hwxnnn.BoxCutter-Helper.plist")
 
     init() {
         refreshStatus()

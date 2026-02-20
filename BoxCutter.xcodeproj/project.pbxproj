@@ -12,11 +12,24 @@
 		D5928B7F2F4849DD0014694F /* ProgressProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7A2F4849DD0014694F /* ProgressProtocol.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		D5928B8F2F4852EC0014694F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		D5928B422F48413F0014694F /* BoxCutter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BoxCutter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D5928B792F4849DD0014694F /* HelperProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperProtocol.swift; sourceTree = "<group>"; };
 		D5928B7A2F4849DD0014694F /* ProgressProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressProtocol.swift; sourceTree = "<group>"; };
 		D5928B7B2F4849DD0014694F /* SharedConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedConstants.swift; sourceTree = "<group>"; };
+		D5928B912F4852EC0014694F /* BoxCutter Helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "BoxCutter Helper"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -25,10 +38,22 @@
 			path = BoxCutter;
 			sourceTree = "<group>";
 		};
+		D5928B922F4852EC0014694F /* BoxCutter Helper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "BoxCutter Helper";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		D5928B3F2F48413F0014694F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5928B8E2F4852EC0014694F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -42,6 +67,7 @@
 			isa = PBXGroup;
 			children = (
 				D5928B442F48413F0014694F /* BoxCutter */,
+				D5928B922F4852EC0014694F /* BoxCutter Helper */,
 				D5928B432F48413F0014694F /* Products */,
 				D5928B542F4846220014694F /* Shared */,
 			);
@@ -51,6 +77,7 @@
 			isa = PBXGroup;
 			children = (
 				D5928B422F48413F0014694F /* BoxCutter.app */,
+				D5928B912F4852EC0014694F /* BoxCutter Helper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -90,6 +117,28 @@
 			productReference = D5928B422F48413F0014694F /* BoxCutter.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D5928B902F4852EC0014694F /* BoxCutter Helper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D5928B952F4852EC0014694F /* Build configuration list for PBXNativeTarget "BoxCutter Helper" */;
+			buildPhases = (
+				D5928B8D2F4852EC0014694F /* Sources */,
+				D5928B8E2F4852EC0014694F /* Frameworks */,
+				D5928B8F2F4852EC0014694F /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D5928B922F4852EC0014694F /* BoxCutter Helper */,
+			);
+			name = "BoxCutter Helper";
+			packageProductDependencies = (
+			);
+			productName = "BoxCutter Helper";
+			productReference = D5928B912F4852EC0014694F /* BoxCutter Helper */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -101,6 +150,9 @@
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					D5928B412F48413F0014694F = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					D5928B902F4852EC0014694F = {
 						CreatedOnToolsVersion = 26.3;
 					};
 				};
@@ -120,6 +172,7 @@
 			projectRoot = "";
 			targets = (
 				D5928B412F48413F0014694F /* BoxCutter */,
+				D5928B902F4852EC0014694F /* BoxCutter Helper */,
 			);
 		};
 /* End PBXProject section */
@@ -142,6 +195,13 @@
 				D5928B7D2F4849DD0014694F /* SharedConstants.swift in Sources */,
 				D5928B7F2F4849DD0014694F /* ProgressProtocol.swift in Sources */,
 				D5928B7E2F4849DD0014694F /* HelperProtocol.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5928B8D2F4852EC0014694F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -332,6 +392,32 @@
 			};
 			name = Release;
 		};
+		D5928B962F4852EC0014694F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 867PL24QLQ;
+				ENABLE_HARDENED_RUNTIME = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D5928B972F4852EC0014694F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 867PL24QLQ;
+				ENABLE_HARDENED_RUNTIME = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -349,6 +435,15 @@
 			buildConfigurations = (
 				D5928B4E2F4841400014694F /* Debug */,
 				D5928B4F2F4841400014694F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D5928B952F4852EC0014694F /* Build configuration list for PBXNativeTarget "BoxCutter Helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D5928B962F4852EC0014694F /* Debug */,
+				D5928B972F4852EC0014694F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

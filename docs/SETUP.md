@@ -5,8 +5,8 @@ The main app builds and runs. The following manual steps are needed to complete 
 ## 1. Create Helper Command Line Tool Target
 
 1. In Xcode: **File > New > Target > macOS > Command Line Tool**
-2. Product Name: `com.hwxnnn.BoxCutter.Helper`
-3. Bundle Identifier: `com.hwxnnn.BoxCutter.Helper`
+2. Product Name: `com.hwxnnn.BoxCutter-Helper`
+3. Bundle Identifier: `com.hwxnnn.BoxCutter-Helper`
 4. Language: Swift
 
 ## 2. Add Source Files to Helper Target
@@ -29,7 +29,7 @@ The shared XPC protocol files are at `Shared/` in the project navigator:
 1. Select each file in the project navigator
 2. In the **File Inspector** (right sidebar), check both:
    - `BoxCutter` target
-   - `com.hwxnnn.BoxCutter.Helper` target
+   - `com.hwxnnn.BoxCutter-Helper` target
 
 ## 4. Embed Helper in Main App Bundle
 
@@ -38,14 +38,14 @@ The shared XPC protocol files are at `Shared/` in the project navigator:
 3. Set:
    - Destination: **Wrapper**
    - Subpath: `Contents/Library/LaunchDaemons`
-4. Click **+** under the copy files list, add the `com.hwxnnn.BoxCutter.Helper` product
+4. Click **+** under the copy files list, add the `com.hwxnnn.BoxCutter-Helper` product
 
 ## 5. Copy LaunchDaemon Plist
 
 In the same or a new Copy Files phase:
 1. Destination: **Wrapper**
 2. Subpath: `Contents/Library/LaunchDaemons`
-3. Add `Helper/com.hwxnnn.BoxCutter.Helper.plist`
+3. Add `Helper/com.hwxnnn.BoxCutter-Helper.plist`
 
 ## 6. Configure Document Types (File Association)
 
