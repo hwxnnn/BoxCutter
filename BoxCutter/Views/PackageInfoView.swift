@@ -149,35 +149,33 @@ struct PackageInfoView: View {
             VStack(alignment: .leading, spacing: 12) {
 
                 // — Metadata section
-                VStack(spacing: 0) {
-                    if !info.packageIdentifier.isEmpty {
-                        infoRow("Identifier", info.packageIdentifier)
-                    }
-                    if !info.version.isEmpty {
-                        infoRow("Version", info.version)
-                    }
-
-                    // Install location picker
-                    HStack(alignment: .top) {
-                        Text("Location")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .frame(width: 80, alignment: .trailing)
-
-                        Picker("", selection: $installTarget) {
-                            Text("/ (All Users)").tag("/")
-                            ForEach(mountedVolumes, id: \.self) { vol in
-                                Text(vol).tag(vol)
-                            }
+                if !info.packageIdentifier.isEmpty || !info.version.isEmpty {
+                    VStack(spacing: 0) {
+                        if !info.packageIdentifier.isEmpty {
+                            infoRow("Identifier", info.packageIdentifier)
                         }
-                        .labelsHidden()
-                        .controlSize(.small)
-                        .frame(maxWidth: 200, alignment: .leading)
-
-                        Spacer()
+                        if !info.version.isEmpty {
+                            infoRow("Version", info.version)
+                        }
                     }
+                }
+
+                // — Location section
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Location")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+
+                    Picker("", selection: $installTarget) {
+                        Text("/ (All Users)").tag("/")
+                        ForEach(mountedVolumes, id: \.self) { vol in
+                            Text(vol).tag(vol)
+                        }
+                    }
+                    .labelsHidden()
+                    .controlSize(.small)
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 3)
                 }
 
                 // — Security section
