@@ -13,6 +13,8 @@ class AppViewModel {
     var detailsLoading: Bool = false
     var installTarget: String = "/"
     var showLicense: Bool = false
+    var dmgInstallProgress: [URL: Double] = [:]
+    private var currentMountPoint: URL?
 
     let helperManager = HelperManager()
     private let settings = AppSettings.shared
@@ -67,6 +69,14 @@ class AppViewModel {
         }
     }
 
+    func handleFile(url: URL) {
+        if url.pathExtension.lowercased() == "dmg" {
+            loadDMG(url: url)
+        } else {
+            loadPackage(url: url)
+        }
+    }
+
     func loadDetails() {
         guard case .packageReady(var info) = state, !info.detailsLoaded else { return }
         detailsLoading = true
@@ -117,13 +127,147 @@ class AppViewModel {
         }
     }
 
+    // MARK: - DMG Flow
+
+    func loadDMG(url: URL) {
+        state = .dmgMounting(url)
+        Task {
+            do {
+                let mountPoint = try await DMGService.mount(url: url)
+                currentMountPoint = mountPoint
+                let apps = try DMGService.findApps(at: mountPoint)
+                let info = DMGInfo(
+                    dmgURL: url,
+                    dmgFileName: url.lastPathComponent,
+                    mountPoint: mountPoint,
+                    apps: apps,
+                    selectedAppIDs: apps.count == 1
+                        ? Set([apps[0].appURL])
+                        : Set()
+                )
+                state = .dmgReady(info)
+            } catch {
+                if let mp = currentMountPoint {
+                    DMGService.unmount(mountPoint: mp)
+                    currentMountPoint = nil
+                }
+                state = .dmgFailed(errorMessage: error.localizedDescription)
+            }
+        }
+    }
+
+    func toggleAppSelection(_ app: DMGAppEntry) {
+        guard case .dmgReady(var info) = state else { return }
+        if info.selectedAppIDs.contains(app.appURL) {
+            info.selectedAppIDs.remove(app.appURL)
+        } else {
+            info.selectedAppIDs.insert(app.appURL)
+        }
+        state = .dmgReady(info)
+    }
+
+    func installSelectedApps() {
+        guard case .dmgReady(let info) = state else { return }
+        let selected = info.apps.filter { info.selectedAppIDs.contains($0.appURL) }
+        guard !selected.isEmpty else { return }
+
+        state = .dmgInstalling(info)
+        dmgInstallProgress = Dictionary(uniqueKeysWithValues: selected.map { ($0.appURL, 0.0) })
+
+        Task {
+            var installed: [InstalledApp] = []
+            var errors: [String] = []
+
+            await withTaskGroup(of: Result<InstalledApp, Error>.self) { group in
+                for app in selected {
+                    group.addTask {
+                        do {
+                            let dest = try await DMGService.copyApp(from: app) { pct in
+                                Task { @MainActor in
+                                    self.dmgInstallProgress[app.appURL] = pct
+                                }
+                            }
+                            return .success(InstalledApp(
+                                appName: app.appName,
+                                installedURL: dest,
+                                bundleIdentifier: app.bundleIdentifier
+                            ))
+                        } catch {
+                            return .failure(error)
+                        }
+                    }
+                }
+                for await result in group {
+                    switch result {
+                    case .success(let app): installed.append(app)
+                    case .failure(let error): errors.append(error.localizedDescription)
+                    }
+                }
+            }
+
+            // Unmount and optionally trash
+            DMGService.unmount(mountPoint: info.mountPoint)
+            currentMountPoint = nil
+
+            if settings.trashAfterInstall {
+                try? FileManager.default.trashItem(at: info.dmgURL, resultingItemURL: nil)
+            }
+
+            if !installed.isEmpty {
+                if settings.playSoundOnComplete {
+                    NSSound(named: NSSound.Name(settings.completionSound))?.play()
+                }
+                state = .dmgCompleted(installed)
+
+                if settings.autoCloseAfterInstall {
+                    try? await Task.sleep(for: .seconds(settings.autoCloseDelay))
+                    NSApplication.shared.terminate(nil)
+                }
+            } else {
+                if settings.playSoundOnComplete {
+                    NSSound(named: NSSound.Name("Basso"))?.play()
+                }
+                state = .dmgFailed(errorMessage: errors.joined(separator: "\n"))
+            }
+        }
+    }
+
+    func showDMGInFinder() {
+        guard case .dmgReady(let info) = state else { return }
+        NSWorkspace.shared.open(info.mountPoint)
+    }
+
+    func cancelDMG() {
+        if let mp = currentMountPoint {
+            DMGService.unmount(mountPoint: mp)
+            currentMountPoint = nil
+        }
+        reset()
+    }
+
+    func openInstalledApp(_ app: InstalledApp) {
+        NSWorkspace.shared.open(app.installedURL)
+    }
+
+    func revealInstalledApp(_ app: InstalledApp) {
+        NSWorkspace.shared.selectFile(
+            app.installedURL.path,
+            inFileViewerRootedAtPath: "/Applications"
+        )
+    }
+
     func reset() {
+        if let mp = currentMountPoint {
+            DMGService.unmount(mountPoint: mp)
+            currentMountPoint = nil
+        }
         state = .idle
         outputLines = []
         progress = 0
         showDetails = false
         showLicense = false
         installTarget = "/"
+        dmgInstallProgress = [:]
     }
 
     func selectFile() {
