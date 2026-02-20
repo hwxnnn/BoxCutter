@@ -14,13 +14,16 @@ class AppViewModel {
 
     private let inspector = PackageInspector()
     private let xpcClient = XPCClient()
+    private let directInstaller = DirectInstaller()
 
     init() {
-        xpcClient.onOutputLine = { [weak self] line in
+        let outputHandler: (String) -> Void = { [weak self] line in
             Task { @MainActor in
                 self?.handleOutputLine(line)
             }
         }
+        xpcClient.onOutputLine = outputHandler
+        directInstaller.onOutputLine = outputHandler
     }
 
     // MARK: - Actions
@@ -46,11 +49,26 @@ class AppViewModel {
         progress = 0
 
         Task {
-            let (success, message) = await xpcClient.installPackage(atPath: info.fileURL.path)
-            if success {
+            var result: (Bool, String)
+
+            if helperManager.isHelperInstalled {
+                // Try XPC to privileged helper daemon
+                result = await xpcClient.installPackage(atPath: info.fileURL.path)
+
+                // If XPC failed, fall back to AppleScript
+                if !result.0 && result.1.contains("XPC connection error") {
+                    outputLines.append("[BoxCutter] Helper unreachable, prompting for password...")
+                    result = await directInstaller.installPackage(atPath: info.fileURL.path)
+                }
+            } else {
+                // No helper — use AppleScript with password prompt
+                result = await directInstaller.installPackage(atPath: info.fileURL.path)
+            }
+
+            if result.0 {
                 state = .completed(info)
             } else {
-                state = .failed(info, errorMessage: message)
+                state = .failed(info, errorMessage: result.1)
             }
         }
     }

@@ -13,6 +13,12 @@ struct ContentView: View {
                 helperBanner
             }
 
+            // Debug: always show daemon status
+            Text("daemon: \(viewModel.helperManager.statusDescription)")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .padding(.top, 2)
+
             // Main content based on state
             Group {
                 switch viewModel.state {
