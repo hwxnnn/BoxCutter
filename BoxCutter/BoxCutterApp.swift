@@ -15,7 +15,7 @@ struct BoxCutterApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
-        .defaultSize(width: 360, height: 180)
+        .defaultSize(width: 400, height: 180)
 
         Settings {
             SettingsView()

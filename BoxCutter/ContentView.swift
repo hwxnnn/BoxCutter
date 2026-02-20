@@ -22,12 +22,10 @@ struct ContentView: View {
                 )
 
             case .inspecting:
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text("Inspecting\u{2026}").font(.headline).foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 30)
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
 
             case .packageReady(let info):
                 PackageInfoView(
@@ -63,7 +61,7 @@ struct ContentView: View {
                 )
             }
         }
-        .frame(width: 360)
+        .frame(width: 400)
         .animation(.easeInOut(duration: 0.25), value: viewModel.showDetails)
         .animation(.easeInOut(duration: 0.2), value: viewModel.state)
         .onReceive(NotificationCenter.default.publisher(for: .openPackageFile)) { notification in

@@ -10,7 +10,7 @@ struct InstallingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header + progress
+            // PINNED: Header + progress
             VStack(spacing: 10) {
                 HStack(spacing: 8) {
                     ProgressView()
@@ -35,7 +35,7 @@ struct InstallingView: View {
             }
             .padding(16)
 
-            // Verbose log (expanded)
+            // EXPANDABLE: Verbose log
             if showDetails && settings.showVerboseOutput {
                 Divider()
                     .padding(.horizontal, 16)
@@ -63,11 +63,10 @@ struct InstallingView: View {
                 }
             }
 
+            // PINNED: Divider + details button
             Divider()
                 .padding(.horizontal, 16)
-                .padding(.top, 4)
 
-            // Details button
             HStack {
                 Button {
                     withAnimation(.easeInOut(duration: 0.25)) {
@@ -90,6 +89,7 @@ struct InstallingView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
+        .clipped()
     }
 }
 
@@ -100,5 +100,5 @@ struct InstallingView: View {
         progress: 0.5,
         showDetails: .constant(false)
     )
-    .frame(width: 360)
+    .frame(width: 400)
 }
