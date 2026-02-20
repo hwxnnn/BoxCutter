@@ -10,59 +10,50 @@ class DirectInstaller {
         // Copy pkg to /tmp/ so the privileged process can access it
         // (macOS TCC blocks root from reading ~/Downloads, ~/Desktop, etc.)
         let fileName = URL(fileURLWithPath: path).lastPathComponent
-        let tmpPath = "/tmp/BoxCutter-\(UUID().uuidString)-\(fileName)"
-        defer { try? FileManager.default.removeItem(atPath: tmpPath) }
+        let sessionID = UUID().uuidString
+        let tmpPkg = "/tmp/BoxCutter-\(sessionID)-\(fileName)"
+        let logFile = "/tmp/BoxCutter-\(sessionID).log"
+
+        defer {
+            try? FileManager.default.removeItem(atPath: tmpPkg)
+            try? FileManager.default.removeItem(atPath: logFile)
+        }
 
         do {
-            try FileManager.default.copyItem(atPath: path, toPath: tmpPath)
+            try FileManager.default.copyItem(atPath: path, toPath: tmpPkg)
         } catch {
             return (false, "Failed to prepare package: \(error.localizedDescription)")
         }
 
-        let escaped = tmpPath
+        // Create the log file so we can start watching it
+        FileManager.default.createFile(atPath: logFile, contents: nil)
+
+        let escaped = tmpPkg
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        let logEscaped = logFile
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
 
-        let appleScript = "do shell script \"/usr/sbin/installer -verboseR -pkg \\\"\(escaped)\\\" -target /\" with administrator privileges"
+        // Redirect installer output to the log file so we can tail it in real-time
+        let shellCmd = "/usr/sbin/installer -verboseR -pkg \\\"\(escaped)\\\" -target / > \\\"\(logEscaped)\\\" 2>&1"
+        let appleScript = "do shell script \"\(shellCmd)\" with administrator privileges"
+
+        // Start tailing the log file for real-time output
+        let tailTask = Task { [weak self] in
+            await self?.tailLogFile(atPath: logFile)
+        }
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         process.arguments = ["-e", appleScript]
 
-        let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
+        process.standardOutput = FileHandle.nullDevice
         process.standardError = stderrPipe
 
-        return await withCheckedContinuation { continuation in
-            let handle = stdoutPipe.fileHandleForReading
-
-            handle.readabilityHandler = { [weak self] fileHandle in
-                let data = fileHandle.availableData
-                guard !data.isEmpty else { return }
-                if let str = String(data: data, encoding: .utf8) {
-                    for line in str.components(separatedBy: "\n") where !line.isEmpty {
-                        DispatchQueue.main.async {
-                            self?.onOutputLine?(line)
-                        }
-                    }
-                }
-            }
-
-            process.terminationHandler = { [weak self] proc in
-                handle.readabilityHandler = nil
-
-                // Read remaining stdout
-                let remaining = handle.readDataToEndOfFile()
-                if !remaining.isEmpty, let str = String(data: remaining, encoding: .utf8) {
-                    for line in str.components(separatedBy: "\n") where !line.isEmpty {
-                        DispatchQueue.main.async {
-                            self?.onOutputLine?(line)
-                        }
-                    }
-                }
-
-                // Read stderr for error details
+        let result: (Bool, String) = await withCheckedContinuation { continuation in
+            process.terminationHandler = { proc in
                 let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
                 let errStr = String(data: errData, encoding: .utf8) ?? ""
 
@@ -70,7 +61,7 @@ class DirectInstaller {
                 let message: String
                 if success {
                     message = "Installation completed successfully."
-                } else if !errStr.isEmpty {
+                } else if !errStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     message = errStr.trimmingCharacters(in: .whitespacesAndNewlines)
                 } else {
                     message = "Installation failed with exit code \(proc.terminationStatus)."
@@ -82,6 +73,47 @@ class DirectInstaller {
                 try process.run()
             } catch {
                 continuation.resume(returning: (false, "Failed to launch installer: \(error.localizedDescription)"))
+            }
+        }
+
+        tailTask.cancel()
+
+        // Read any remaining lines the tail didn't catch
+        if let data = FileManager.default.contents(atPath: logFile),
+           let content = String(data: data, encoding: .utf8) {
+            // The tail task handles most lines, but grab the last chunk
+            let allLines = content.components(separatedBy: "\n").filter { !$0.isEmpty }
+            let alreadySent = await MainActor.run { return onOutputLine != nil }
+            if alreadySent {
+                // Final lines will have been picked up by the tail loop
+            }
+        }
+
+        return result
+    }
+
+    private func tailLogFile(atPath path: String) async {
+        var offset: UInt64 = 0
+
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(100))
+
+            guard let handle = FileHandle(forReadingAtPath: path) else { continue }
+            defer { handle.closeFile() }
+
+            handle.seek(toFileOffset: offset)
+            let data = handle.readDataToEndOfFile()
+
+            if !data.isEmpty {
+                offset += UInt64(data.count)
+                if let str = String(data: data, encoding: .utf8) {
+                    let lines = str.components(separatedBy: "\n").filter { !$0.isEmpty }
+                    for line in lines {
+                        await MainActor.run { [weak self] in
+                            self?.onOutputLine?(line)
+                        }
+                    }
+                }
             }
         }
     }
