@@ -16,6 +16,7 @@ class AppViewModel {
     var dmgInstallProgress: [URL: Double] = [:]
     var quarantineFixedApps: Set<URL> = []
     private var currentMountPoint: URL?
+    private var autoCloseTask: Task<Void, Never>?
 
     let helperManager = HelperManager()
     private let settings = AppSettings.shared
@@ -114,11 +115,6 @@ class AppViewModel {
                     NSSound(named: NSSound.Name(settings.completionSound))?.play()
                 }
                 state = .completed(info)
-
-                if settings.autoCloseAfterInstall {
-                    try? await Task.sleep(for: .seconds(settings.autoCloseDelay))
-                    NSApplication.shared.terminate(nil)
-                }
             } else {
                 if settings.playSoundOnComplete {
                     NSSound(named: NSSound.Name("Basso"))?.play()
@@ -229,11 +225,6 @@ class AppViewModel {
                     NSSound(named: NSSound.Name(settings.completionSound))?.play()
                 }
                 state = .dmgCompleted(installed)
-
-                if settings.autoCloseAfterInstall {
-                    try? await Task.sleep(for: .seconds(settings.autoCloseDelay))
-                    NSApplication.shared.terminate(nil)
-                }
             } else {
                 if settings.playSoundOnComplete {
                     NSSound(named: NSSound.Name("Basso"))?.play()
@@ -264,6 +255,8 @@ class AppViewModel {
     }
 
     func reset() {
+        autoCloseTask?.cancel()
+        autoCloseTask = nil
         if let mp = currentMountPoint {
             currentMountPoint = nil
             Task.detached { DMGService.unmount(mountPoint: mp) }
@@ -276,6 +269,33 @@ class AppViewModel {
         installTarget = "/"
         dmgInstallProgress = [:]
         quarantineFixedApps = []
+    }
+
+    // MARK: - Focus-based auto-close
+
+    /// Called when the app loses focus. Starts the auto-close countdown if a
+    /// completion state is showing and the setting is enabled.
+    func appWillResignActive() {
+        guard settings.autoCloseAfterInstall else { return }
+        let isComplete: Bool
+        switch state {
+        case .completed, .dmgCompleted: isComplete = true
+        default: isComplete = false
+        }
+        guard isComplete else { return }
+        autoCloseTask?.cancel()
+        autoCloseTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .seconds(settings.autoCloseDelay))
+            guard !Task.isCancelled else { return }
+            NSApplication.shared.terminate(nil)
+        }
+    }
+
+    /// Called when the app regains focus. Cancels any pending auto-close countdown.
+    func appDidBecomeActive() {
+        autoCloseTask?.cancel()
+        autoCloseTask = nil
     }
 
     func uninstallInstalledApps(_ apps: [InstalledApp]) {
