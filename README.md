@@ -11,7 +11,8 @@ Drop a <code>.pkg</code> or <code>.dmg</code> — BoxCutter installs it in secon
 
 <p align="center">
 No more double-clicking disk images, dragging to Applications, unmounting volumes,<br>
-or running through multi-step installer wizards. Just drop and go.
+or running through multi-step installer wizards. Just drop and go.<br>
+I didn't type a single line of code.
 </p>
 
 ---
