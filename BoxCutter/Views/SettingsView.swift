@@ -122,13 +122,7 @@ struct SettingsView: View {
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .toolbar(removing: .sidebarToggle)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text(activePane.title)
-                    .font(.headline)
-            }
-        }
+        .navigationTitle(activePane.title)
     }
 
     // MARK: - Pages
