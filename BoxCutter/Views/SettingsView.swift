@@ -6,7 +6,7 @@ struct SettingsView: View {
         case general
         case installation
         case output
-        case helper
+        case permissions
         case advanced
 
         var id: Self { self }
@@ -16,7 +16,7 @@ struct SettingsView: View {
             case .general: return "General"
             case .installation: return "Installation"
             case .output: return "Output"
-            case .helper: return "Helper"
+            case .permissions: return "Permissions"
             case .advanced: return "Advanced"
             }
         }
@@ -26,7 +26,7 @@ struct SettingsView: View {
             case .general: return "slider.horizontal.3"
             case .installation: return "shippingbox"
             case .output: return "text.justify.left"
-            case .helper: return "lock.shield"
+            case .permissions: return "lock.shield"
             case .advanced: return "wrench.and.screwdriver"
             }
         }
@@ -109,8 +109,8 @@ struct SettingsView: View {
                         installationContent
                     case .output:
                         outputContent
-                    case .helper:
-                        helperContent
+                    case .permissions:
+                        permissionsContent
                     case .advanced:
                         advancedContent
                     }
@@ -318,76 +318,89 @@ struct SettingsView: View {
         }
     }
 
-    private var helperContent: some View {
+    private var permissionsContent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            sectionCard("Helper Status") {
-                controlRow("Daemon status") {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(helperManager.statusColor)
-                            .frame(width: 7, height: 7)
-                        Text(helperManager.displayStatus)
-                            .font(.subheadline.weight(.semibold))
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(helperManager.statusColor.opacity(0.12), in: Capsule())
-                    .foregroundStyle(helperManager.statusColor)
-                }
-
-                Divider()
-                toggleRow(
-                    "Prefer helper for installs",
-                    "Use the helper daemon before falling back to password prompts.",
-                    isOn: $settings.preferHelperDaemon
-                )
-
-                if helperManager.needsApproval {
-                    Divider()
-                    controlRow("Approval required") {
-                        Button("Open Login Items") {
-                            openLoginItemsSettings()
+            sectionCard("Privilege Escalation") {
+                controlRow(
+                    "Method",
+                    "How BoxCutter obtains administrator privileges to install packages."
+                ) {
+                    Picker("Method", selection: Binding(
+                        get: { settings.privilegeMethod },
+                        set: { settings.privilegeMethod = $0 }
+                    )) {
+                        ForEach(AppSettings.PrivilegeMethod.allCases) { method in
+                            Text(method.title).tag(method)
                         }
                     }
+                    .labelsHidden()
+                    .frame(width: 190)
                 }
-            }
-
-            sectionCard("Actions") {
-                HStack(spacing: 10) {
-                    Button("Install Helper") { doInstallHelper() }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(helperManager.isHelperInstalled)
-
-                    Button("Uninstall Helper") { doUninstallHelper() }
-                        .buttonStyle(.bordered)
-                        .disabled(!helperManager.isHelperInstalled && !helperManager.needsApproval)
-
-                    Spacer()
-
-                    Button("Refresh") {
-                        helperActionError = nil
-                        helperManager.refreshStatus()
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-                if let helperActionError {
-                    Divider()
-                    Text(helperActionError)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-            }
-
-            sectionCard("Info") {
-                valueRow("Mach service", value: "com.hwxnnn.BoxCutter-Helper")
 
                 Divider()
-                HStack {
-                    Button("Open Login Items in System Settings") {
-                        openLoginItemsSettings()
+
+                Text(settings.privilegeMethod.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 2)
+            }
+
+            if settings.prefersHelper {
+                sectionCard("Helper Daemon") {
+                    controlRow("Status") {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(helperManager.statusColor)
+                                .frame(width: 7, height: 7)
+                            Text(helperManager.displayStatus)
+                                .font(.subheadline.weight(.medium))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(helperManager.statusColor.opacity(0.12), in: Capsule())
+                        .foregroundStyle(helperManager.statusColor)
                     }
-                    Spacer()
+
+                    if helperManager.needsApproval {
+                        Divider()
+                        controlRow(
+                            "Approval required",
+                            "Allow BoxCutter in System Settings > Login Items."
+                        ) {
+                            Button("Open Login Items") {
+                                openLoginItemsSettings()
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    HStack(spacing: 10) {
+                        Button("Install Helper") { doInstallHelper() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(helperManager.isHelperInstalled)
+
+                        Button("Uninstall") { doUninstallHelper() }
+                            .buttonStyle(.bordered)
+                            .disabled(!helperManager.isHelperInstalled && !helperManager.needsApproval)
+
+                        Spacer()
+
+                        Button("Refresh") {
+                            helperActionError = nil
+                            helperManager.refreshStatus()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding(.vertical, 2)
+
+                    if let helperActionError {
+                        Divider()
+                        Text(helperActionError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
                 }
             }
         }

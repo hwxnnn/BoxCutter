@@ -7,8 +7,8 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Helper status banner (hidden when user opted out of helper)
-            if settings.preferHelperDaemon {
+            // Helper status banner (only when helper method is selected)
+            if settings.prefersHelper {
                 if viewModel.helperManager.needsApproval {
                     approvalBanner
                 } else if !viewModel.helperManager.isHelperInstalled {
@@ -54,7 +54,8 @@ struct ContentView: View {
                     success: true,
                     packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
                     message: "Installation completed successfully.",
-                    onDone: { viewModel.done() }
+                    onDone: { viewModel.done() },
+                    outputLines: viewModel.outputLines
                 )
 
             case .failed(let info, let errorMessage):
@@ -62,7 +63,8 @@ struct ContentView: View {
                     success: false,
                     packageName: info.packageName.isEmpty ? info.fileName : info.packageName,
                     message: errorMessage,
-                    onDone: { viewModel.done() }
+                    onDone: { viewModel.done() },
+                    outputLines: viewModel.outputLines
                 )
 
             // DMG states
@@ -147,13 +149,14 @@ struct ContentView: View {
 
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
+            settings.privilegeMethod = .helper
             viewModel.installHelper()
             // Open System Settings so the user can approve the daemon immediately
             if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
                 NSWorkspace.shared.open(url)
             }
         } else {
-            settings.preferHelperDaemon = false
+            settings.privilegeMethod = .appleScript
         }
     }
 

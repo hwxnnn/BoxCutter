@@ -123,7 +123,7 @@ class AppViewModel {
             }
 
             // I-2: Pass installTarget through to the helper so the Location picker is respected.
-            if settings.preferHelperDaemon && helperManager.isHelperInstalled {
+            if settings.prefersHelper && helperManager.isHelperInstalled {
                 // Copy to /tmp/ so the root-level helper can read it
                 // (TCC blocks root from ~/Downloads, ~/Desktop, etc.)
                 let tmpPkg = "/tmp/BoxCutter-\(UUID().uuidString)-\(info.fileURL.lastPathComponent)"

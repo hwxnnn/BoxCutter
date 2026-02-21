@@ -23,6 +23,27 @@ class AppSettings {
         }
     }
 
+    enum PrivilegeMethod: String, CaseIterable, Identifiable {
+        case helper
+        case appleScript
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .helper: return "Helper Daemon"
+            case .appleScript: return "Password Prompt"
+            }
+        }
+
+        var description: String {
+            switch self {
+            case .helper: return "Experimental — installs packages without password input using a background daemon. Requires one-time approval in System Settings."
+            case .appleScript: return "Stable — asks for your administrator password each time a package is installed."
+            }
+        }
+    }
+
     enum OutputProfile: String, CaseIterable, Identifiable {
         case quiet
         case balanced
@@ -155,12 +176,24 @@ class AppSettings {
         didSet { UserDefaults.standard.set(trashDMGAfterInstall, forKey: "trashDMGAfterInstall") }
     }
 
-    // MARK: - Helper
+    // MARK: - Permissions
 
-    /// Prefer the privileged helper daemon over password prompts
-    var preferHelperDaemon: Bool {
-        didSet { UserDefaults.standard.set(preferHelperDaemon, forKey: "preferHelperDaemon") }
+    /// Preferred method for privilege escalation
+    var privilegeMethod: PrivilegeMethod {
+        get {
+            PrivilegeMethod(rawValue: privilegeMethodRaw) ?? .appleScript
+        }
+        set {
+            privilegeMethodRaw = newValue.rawValue
+        }
     }
+
+    private var privilegeMethodRaw: String {
+        didSet { UserDefaults.standard.set(privilegeMethodRaw, forKey: "privilegeMethod") }
+    }
+
+    /// Convenience: true when the user prefers the helper daemon
+    var prefersHelper: Bool { privilegeMethod == .helper }
 
     /// Whether the first-launch privilege prompt has been shown
     var hasShownFirstLaunchPrompt: Bool {
@@ -259,7 +292,7 @@ class AppSettings {
         showPayloadFiles = true
         confirmBeforeDMGInstall = true
         trashDMGAfterInstall = true
-        preferHelperDaemon = true
+        privilegeMethodRaw = PrivilegeMethod.appleScript.rawValue
         hasShownFirstLaunchPrompt = false
     }
 
@@ -286,7 +319,7 @@ class AppSettings {
             "showPayloadFiles": true,
             "confirmBeforeDMGInstall": true,
             "trashDMGAfterInstall": true,
-            "preferHelperDaemon": true,
+            "privilegeMethod": PrivilegeMethod.appleScript.rawValue,
             "hasShownFirstLaunchPrompt": false
         ]
         defaults.register(defaults: defaultValues)
@@ -308,7 +341,7 @@ class AppSettings {
         showPayloadFiles = defaults.bool(forKey: "showPayloadFiles")
         confirmBeforeDMGInstall = defaults.bool(forKey: "confirmBeforeDMGInstall")
         trashDMGAfterInstall = defaults.bool(forKey: "trashDMGAfterInstall")
-        preferHelperDaemon = defaults.bool(forKey: "preferHelperDaemon")
+        privilegeMethodRaw = defaults.string(forKey: "privilegeMethod") ?? PrivilegeMethod.appleScript.rawValue
         hasShownFirstLaunchPrompt = defaults.bool(forKey: "hasShownFirstLaunchPrompt")
     }
 
