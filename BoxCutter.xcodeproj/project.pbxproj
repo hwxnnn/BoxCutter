@@ -13,7 +13,7 @@
 		D5928B9D2F4853990014694F /* ProgressProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7A2F4849DD0014694F /* ProgressProtocol.swift */; };
 		D5928B9E2F4853990014694F /* SharedConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7B2F4849DD0014694F /* SharedConstants.swift */; };
 		D5928B9F2F4853990014694F /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B792F4849DD0014694F /* HelperProtocol.swift */; };
-		D5928BA12F4853E80014694F /* BoxCutter Helper in CopyFiles */ = {isa = PBXBuildFile; fileRef = D5928B912F4852EC0014694F /* BoxCutter Helper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		D5928BA12F4853E80014694F /* BoxCutter Helper in CopyFiles */ = {isa = PBXBuildFile; fileRef = D5928B912F4852EC0014694F /* BoxCutterHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -62,7 +62,7 @@
 		D5928B792F4849DD0014694F /* HelperProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperProtocol.swift; sourceTree = "<group>"; };
 		D5928B7A2F4849DD0014694F /* ProgressProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressProtocol.swift; sourceTree = "<group>"; };
 		D5928B7B2F4849DD0014694F /* SharedConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedConstants.swift; sourceTree = "<group>"; };
-		D5928B912F4852EC0014694F /* BoxCutter Helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "BoxCutter Helper"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D5928B912F4852EC0014694F /* BoxCutterHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "BoxCutter Helper"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -123,7 +123,7 @@
 			isa = PBXGroup;
 			children = (
 				D5928B422F48413F0014694F /* BoxCutter.app */,
-				D5928B912F4852EC0014694F /* BoxCutter Helper */,
+				D5928B912F4852EC0014694F /* BoxCutterHelper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -184,7 +184,7 @@
 			packageProductDependencies = (
 			);
 			productName = "BoxCutter Helper";
-			productReference = D5928B912F4852EC0014694F /* BoxCutter Helper */;
+			productReference = D5928B912F4852EC0014694F /* BoxCutterHelper */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -458,7 +458,7 @@
 				DEVELOPMENT_TEAM = 867PL24QLQ;
 				ENABLE_HARDENED_RUNTIME = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = BoxCutterHelper;
 				SKIP_INSTALL = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
@@ -474,7 +474,7 @@
 				DEVELOPMENT_TEAM = 867PL24QLQ;
 				ENABLE_HARDENED_RUNTIME = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = BoxCutterHelper;
 				SKIP_INSTALL = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;

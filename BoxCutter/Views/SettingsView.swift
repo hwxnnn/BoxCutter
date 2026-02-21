@@ -356,9 +356,11 @@ struct SettingsView: View {
                 HStack(spacing: 10) {
                     Button("Install Helper") { doInstallHelper() }
                         .buttonStyle(.borderedProminent)
+                        .disabled(helperManager.isHelperInstalled)
 
                     Button("Uninstall Helper") { doUninstallHelper() }
                         .buttonStyle(.bordered)
+                        .disabled(!helperManager.isHelperInstalled && !helperManager.needsApproval)
 
                     Spacer()
 
