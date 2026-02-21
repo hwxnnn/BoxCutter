@@ -10,6 +10,8 @@ class HelperManager {
 
     private(set) var isHelperInstalled: Bool = false
     private(set) var needsApproval: Bool = false
+    private(set) var displayStatus: String = "Checking..."
+    private(set) var statusColor: Color = .gray
 
     private let daemon = SMAppService.daemon(plistName: "com.hwxnnn.BoxCutter-Helper.plist")
     private var pollingTask: Task<Void, Never>?
@@ -22,23 +24,23 @@ class HelperManager {
         let status = daemon.status
         isHelperInstalled = (status == .enabled)
         needsApproval = (status == .requiresApproval)
-    }
 
-    var displayStatus: String {
-        switch daemon.status {
-        case .enabled:          return "Installed & Running"
-        case .requiresApproval: return "Needs Approval"
-        case .notRegistered:    return "Not Installed"
-        case .notFound:         return "Not Found"
-        @unknown default:       return "Unknown"
-        }
-    }
-
-    var statusColor: Color {
-        switch daemon.status {
-        case .enabled:          return .green
-        case .requiresApproval: return .orange
-        default:                return .red
+        switch status {
+        case .enabled:
+            displayStatus = "Installed & Running"
+            statusColor = .green
+        case .requiresApproval:
+            displayStatus = "Needs Approval"
+            statusColor = .orange
+        case .notRegistered:
+            displayStatus = "Not Installed"
+            statusColor = .red
+        case .notFound:
+            displayStatus = "Not Found"
+            statusColor = .red
+        @unknown default:
+            displayStatus = "Unknown"
+            statusColor = .gray
         }
     }
 

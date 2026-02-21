@@ -31,12 +31,13 @@ class XPCClient {
     func installPackage(atPath path: String, target: String) async -> (Bool, String) {
         if connection == nil { connect() }
 
-        let once = OnceResume<(Bool, String)>()
+        let once = OnceResume()
 
         return await withCheckedContinuation { continuation in
             // Start a timeout that invalidates the connection if the helper doesn't respond.
+            // Give launchd time to cold-start the daemon on first invocation.
             let timeoutTask = Task {
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(for: .seconds(30))
                 guard !Task.isCancelled else { return }
                 await MainActor.run { self.disconnect() }
                 once.resume(continuation, returning: (false, "Helper did not respond in time."))
@@ -64,11 +65,11 @@ class XPCClient {
 }
 
 /// Thread-safe guard ensuring a CheckedContinuation is resumed at most once.
-private final class OnceResume<T>: @unchecked Sendable {
+private final class OnceResume: @unchecked Sendable {
     private var resumed = false
     private let lock = NSLock()
 
-    func resume(_ continuation: CheckedContinuation<T, Never>, returning value: T) {
+    func resume<T>(_ continuation: CheckedContinuation<T, Never>, returning value: T) {
         lock.lock()
         let alreadyResumed = resumed
         resumed = true

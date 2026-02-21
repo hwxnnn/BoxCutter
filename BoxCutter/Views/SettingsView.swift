@@ -413,12 +413,8 @@ struct SettingsView: View {
     // MARK: - Actions
 
     private func doInstallHelper() {
-        do {
-            try helperManager.installHelper()
-            helperActionError = nil
-        } catch {
-            helperActionError = error.localizedDescription
-        }
+        helperManager.installHelper()
+        helperActionError = nil
     }
 
     private func doUninstallHelper() {
