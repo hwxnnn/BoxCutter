@@ -43,17 +43,24 @@ class HelperManager {
     }
 
     func installHelper() throws {
-        // Only unregister if already registered, to avoid a race where
-        // unregister invalidates state right before register runs.
-        if daemon.status != .notRegistered && daemon.status != .notFound {
-            try? daemon.unregister()
+        try? daemon.unregister()
+        do {
+            try daemon.register()
+        } catch {
+            refreshStatus()
+            // macOS 13+ requires user approval in System Settings > Login Items.
+            // register() throws "Operation not permitted" while awaiting approval —
+            // this is normal, not an error. Only rethrow for actual failures.
+            if daemon.status != .requiresApproval {
+                throw error
+            }
         }
-        try daemon.register()
         refreshStatus()
 
+        // Poll for up to 30 seconds waiting for the user to approve in System Settings.
         pollingTask?.cancel()
         pollingTask = Task {
-            for _ in 0..<10 {
+            for _ in 0..<30 {
                 try? await Task.sleep(for: .seconds(1))
                 if Task.isCancelled { return }
                 refreshStatus()
