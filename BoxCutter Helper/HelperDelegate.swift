@@ -15,7 +15,6 @@ class HelperDelegate: NSObject, NSXPCListenerDelegate {
     // MARK: - NSXPCListenerDelegate
 
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
-        // Validate connecting client's code signature
         guard validateClient(connection: newConnection) else {
             return false
         }
@@ -47,30 +46,57 @@ class HelperDelegate: NSObject, NSXPCListenerDelegate {
             return false
         }
 
-        // Get the Helper daemon's own Team ID
+        // Strategy 1: Check team ID (production builds)
+        if let teamID = selfTeamID() {
+            let reqStr = "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\"" as CFString
+            var requirement: SecRequirement?
+            if SecRequirementCreateWithString(reqStr, [], &requirement) == errSecSuccess,
+               let req = requirement,
+               SecCodeCheckValidity(code, [], req) == errSecSuccess {
+                return true
+            }
+        }
+
+        // Strategy 2: Check bundle identifier (development builds where team ID
+        // may not be available — e.g. ad-hoc signed helper tools)
+        let bundleReq = "identifier \"com.hwxnnn.BoxCutter\" and anchor apple generic" as CFString
+        var requirement: SecRequirement?
+        if SecRequirementCreateWithString(bundleReq, [], &requirement) == errSecSuccess,
+           let req = requirement,
+           SecCodeCheckValidity(code, [], req) == errSecSuccess {
+            return true
+        }
+
+        // Strategy 3: For local Xcode development builds (signed with Apple Development
+        // certificate but without anchor apple generic), just check the identifier
+        let devReq = "identifier \"com.hwxnnn.BoxCutter\"" as CFString
+        var devRequirement: SecRequirement?
+        if SecRequirementCreateWithString(devReq, [], &devRequirement) == errSecSuccess,
+           let req = devRequirement,
+           SecCodeCheckValidity(code, [], req) == errSecSuccess {
+            return true
+        }
+
+        return false
+    }
+
+    /// Extract our own team ID from signing information, if available.
+    private func selfTeamID() -> String? {
         var selfCode: SecCode?
         guard SecCodeCopySelf([], &selfCode) == errSecSuccess, let myself = selfCode else {
-            return false
+            return nil
         }
-
-        var selfInfo: CFDictionary?
-        // Safely cast SecCode to SecStaticCode using unsafeBitCast since they are bridged
-        let staticSelf = unsafeBitCast(myself, to: SecStaticCode.self)
-        guard SecCodeCopySigningInformation(staticSelf, SecCSFlags(rawValue: kSecCSRequirementInformation), &selfInfo) == errSecSuccess,
-              let infoDict = selfInfo as? [String: Any],
-              let teamID = infoDict[kSecCodeInfoTeamIdentifier as String] as? String else {
-            return false // Could not determine our own Team ID (e.g. ad-hoc signed)
+        var staticSelf: SecStaticCode?
+        guard SecCodeCopyStaticCode(myself, [], &staticSelf) == errSecSuccess,
+              let staticCode = staticSelf else {
+            return nil
         }
-
-        // Require the connecting app to be signed by the exact same team
-        let requirementString = "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\""
-        var requirement: SecRequirement?
-        
-        guard SecRequirementCreateWithString(requirementString as CFString, [], &requirement) == errSecSuccess,
-              let req = requirement else {
-            return false
+        var info: CFDictionary?
+        guard SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSRequirementInformation), &info) == errSecSuccess,
+              let dict = info as? [String: Any],
+              let teamID = dict[kSecCodeInfoTeamIdentifier as String] as? String else {
+            return nil
         }
-
-        return SecCodeCheckValidity(code, [], req) == errSecSuccess
+        return teamID
     }
 }
