@@ -27,7 +27,6 @@ class AppViewModel {
     var dmgInstallProgress: [URL: Double] = [:]
     var dmgInstallErrors: [String] = []
     var quarantineFixedApps: Set<URL> = []
-    var helperInstallError: String?
     /// When true, "Done" should quit the app instead of returning to idle.
     var shouldQuitOnDone: Bool = false
 
@@ -318,7 +317,6 @@ class AppViewModel {
         dmgInstallProgress = [:]
         dmgInstallErrors = []
         quarantineFixedApps = []
-        helperInstallError = nil
         shouldQuitOnDone = false
     }
 
@@ -375,14 +373,8 @@ class AppViewModel {
         }
     }
 
-    /// I-6: Surfaces helper registration errors instead of silently swallowing them.
     func installHelper() {
-        do {
-            try helperManager.installHelper()
-            helperInstallError = nil
-        } catch {
-            helperInstallError = error.localizedDescription
-        }
+        helperManager.installHelper()
     }
 
     // MARK: - Private

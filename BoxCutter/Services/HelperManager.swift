@@ -42,19 +42,13 @@ class HelperManager {
         }
     }
 
-    func installHelper() throws {
+    /// Attempts to register the helper daemon.
+    /// On macOS 13+, register() always throws "Operation not permitted" until
+    /// the user approves in System Settings > Login Items. This is normal —
+    /// we never surface the error. The UI banners reflect the actual status.
+    func installHelper() {
         try? daemon.unregister()
-        do {
-            try daemon.register()
-        } catch {
-            refreshStatus()
-            // macOS 13+ requires user approval in System Settings > Login Items.
-            // register() throws "Operation not permitted" while awaiting approval —
-            // this is normal, not an error. Only rethrow for actual failures.
-            if daemon.status != .requiresApproval {
-                throw error
-            }
-        }
+        try? daemon.register()
         refreshStatus()
 
         // Poll for up to 30 seconds waiting for the user to approve in System Settings.

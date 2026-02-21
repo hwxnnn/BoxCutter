@@ -173,11 +173,7 @@ struct ContentView: View {
     private var helperBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow).font(.caption)
-            if let err = viewModel.helperInstallError {
-                Text(err).font(.caption).foregroundStyle(.red).lineLimit(1)
-            } else {
-                Text("Helper not installed.").font(.caption)
-            }
+            Text("Helper not installed.").font(.caption)
             Spacer()
             Button("Install") { viewModel.installHelper() }
                 .controlSize(.mini)
