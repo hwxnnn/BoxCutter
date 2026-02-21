@@ -58,23 +58,3 @@ I didn't type a single line of code.
 4. Build (`Cmd + B`).
 
 The Privileged Helper is embedded automatically during the build process. On first launch, macOS will prompt you to approve the helper daemon in **System Settings > Login Items & Extensions**.
-
-## Architecture
-
-```
-BoxCutter/                  Main app target (SwiftUI)
-├── Models/                 Data types: AppState, PackageInfo, DMGInfo, AppSettings
-├── ViewModels/             AppViewModel — state machine driving the UI
-├── Views/                  All SwiftUI views (DropZone, Installer, Completion, Settings)
-├── Services/               PackageInspector, DMGService, XPCClient, DirectInstaller, HelperManager
-BoxCutter Helper/           Privileged launchd daemon
-├── HelperDelegate          NSXPCListener with dynamic code-signature validation
-├── InstallerRunner         Runs /usr/sbin/installer with real-time output streaming
-Shared/                     Protocols and constants shared between both targets
-```
-
-The main app communicates with the helper daemon over XPC. The helper validates that the connecting process is signed by the same Apple Developer Team before accepting any commands. This validation is performed dynamically at runtime — no Team IDs are hardcoded.
-
-## License
-
-MIT
