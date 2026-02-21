@@ -140,7 +140,7 @@ struct ContentView: View {
 
         let alert = NSAlert()
         alert.messageText = "Privilege Escalation"
-        alert.informativeText = "BoxCutter needs elevated privileges to install packages.\n\nYou can install a helper daemon that runs silently in the background, or use macOS password prompts each time."
+        alert.informativeText = "BoxCutter needs elevated privileges to install packages.\n\nYou can install a helper daemon that runs silently in the background, or use macOS password prompts each time.\n\nThe helper requires your approval in System Settings after installation."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Install Helper")
         alert.addButton(withTitle: "Use Password Prompts")
@@ -148,6 +148,10 @@ struct ContentView: View {
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
             viewModel.installHelper()
+            // Open System Settings so the user can approve the daemon immediately
+            if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
+                NSWorkspace.shared.open(url)
+            }
         } else {
             settings.preferHelperDaemon = false
         }

@@ -124,7 +124,21 @@ class AppViewModel {
 
             // I-2: Pass installTarget through to the helper so the Location picker is respected.
             if settings.preferHelperDaemon && helperManager.isHelperInstalled {
-                result = await xpcClient.installPackage(atPath: info.fileURL.path, target: resolvedTarget)
+                // Copy to /tmp/ so the root-level helper can read it
+                // (TCC blocks root from ~/Downloads, ~/Desktop, etc.)
+                let tmpPkg = "/tmp/BoxCutter-\(UUID().uuidString)-\(info.fileURL.lastPathComponent)"
+                do {
+                    try FileManager.default.copyItem(atPath: info.fileURL.path, toPath: tmpPkg)
+                } catch {
+                    result = (false, "Failed to prepare package: \(error.localizedDescription)")
+                    // skip to the result handling below
+                    if !result.0 {
+                        outputLines.append("[BoxCutter] \(result.1)")
+                    }
+                    return
+                }
+                result = await xpcClient.installPackage(atPath: tmpPkg, target: resolvedTarget)
+                try? FileManager.default.removeItem(atPath: tmpPkg)
                 if !result.0 {
                     outputLines.append("[BoxCutter] Helper failed (\(result.1)), falling back to password prompt…")
                     result = await directInstaller.installPackage(atPath: info.fileURL.path, target: resolvedTarget)
