@@ -130,11 +130,12 @@ class AppViewModel {
                 do {
                     try FileManager.default.copyItem(atPath: info.fileURL.path, toPath: tmpPkg)
                 } catch {
-                    result = (false, "Failed to prepare package: \(error.localizedDescription)")
-                    // skip to the result handling below
-                    if !result.0 {
-                        outputLines.append("[BoxCutter] \(result.1)")
+                    let message = "Failed to prepare package: \(error.localizedDescription)"
+                    outputLines.append("[BoxCutter] \(message)")
+                    if settings.playSoundOnComplete {
+                        NSSound(named: NSSound.Name("Basso"))?.play()
                     }
+                    state = .failed(info, errorMessage: message)
                     return
                 }
                 result = await xpcClient.installPackage(atPath: tmpPkg, target: resolvedTarget)

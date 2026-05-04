@@ -3,6 +3,8 @@ import Security
 
 class HelperDelegate: NSObject, NSXPCListenerDelegate {
 
+    private static let expectedClientIdentifier = "com.hwxnnn.BoxCutter"
+
     private var listener: NSXPCListener!
 
     func run() {
@@ -46,9 +48,9 @@ class HelperDelegate: NSObject, NSXPCListenerDelegate {
             return false
         }
 
-        // Strategy 1: Check team ID (production builds)
+        // Strategy 1: Check bundle identifier and team ID (production builds)
         if let teamID = selfTeamID() {
-            let reqStr = "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\"" as CFString
+            let reqStr = "identifier \"\(Self.expectedClientIdentifier)\" and anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\"" as CFString
             var requirement: SecRequirement?
             if SecRequirementCreateWithString(reqStr, [], &requirement) == errSecSuccess,
                let req = requirement,
@@ -57,9 +59,10 @@ class HelperDelegate: NSObject, NSXPCListenerDelegate {
             }
         }
 
-        // Strategy 2: Check bundle identifier (development builds where team ID
-        // may not be available — e.g. ad-hoc signed helper tools)
-        let bundleReq = "identifier \"com.hwxnnn.BoxCutter\" and anchor apple generic" as CFString
+        #if DEBUG
+        // Strategy 2: Check bundle identifier for local development builds where
+        // the helper's team ID may not be available.
+        let bundleReq = "identifier \"\(Self.expectedClientIdentifier)\" and anchor apple generic" as CFString
         var requirement: SecRequirement?
         if SecRequirementCreateWithString(bundleReq, [], &requirement) == errSecSuccess,
            let req = requirement,
@@ -69,13 +72,14 @@ class HelperDelegate: NSObject, NSXPCListenerDelegate {
 
         // Strategy 3: For local Xcode development builds (signed with Apple Development
         // certificate but without anchor apple generic), just check the identifier
-        let devReq = "identifier \"com.hwxnnn.BoxCutter\"" as CFString
+        let devReq = "identifier \"\(Self.expectedClientIdentifier)\"" as CFString
         var devRequirement: SecRequirement?
         if SecRequirementCreateWithString(devReq, [], &devRequirement) == errSecSuccess,
            let req = devRequirement,
            SecCodeCheckValidity(code, [], req) == errSecSuccess {
             return true
         }
+        #endif
 
         return false
     }
@@ -92,7 +96,7 @@ class HelperDelegate: NSObject, NSXPCListenerDelegate {
             return nil
         }
         var info: CFDictionary?
-        guard SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSRequirementInformation), &info) == errSecSuccess,
+        guard SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
               let dict = info as? [String: Any],
               let teamID = dict[kSecCodeInfoTeamIdentifier as String] as? String else {
             return nil

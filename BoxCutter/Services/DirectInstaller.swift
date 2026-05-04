@@ -28,19 +28,15 @@ class DirectInstaller {
         // Create the log file so we can start watching it
         FileManager.default.createFile(atPath: logFile, contents: nil)
 
-        let escaped = tmpPkg
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        let logEscaped = logFile
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-
-        // Redirect installer output to the log file so we can tail it in real-time
-        let targetEscaped = target
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        let shellCmd = "/usr/sbin/installer -verboseR -pkg \\\"\(escaped)\\\" -target \\\"\(targetEscaped)\\\" > \\\"\(logEscaped)\\\" 2>&1"
-        let appleScript = "do shell script \"\(shellCmd)\" with administrator privileges"
+        let appleScript = """
+        on run argv
+            set pkgPath to item 1 of argv
+            set targetPath to item 2 of argv
+            set logPath to item 3 of argv
+            set installerCommand to "/usr/sbin/installer -verboseR -pkg " & quoted form of pkgPath & " -target " & quoted form of targetPath & " > " & quoted form of logPath & " 2>&1"
+            do shell script installerCommand with administrator privileges
+        end run
+        """
 
         // Start tailing the log file for real-time output
         let tailTask = Task { [weak self] in
@@ -49,7 +45,7 @@ class DirectInstaller {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", appleScript]
+        process.arguments = ["-e", appleScript, tmpPkg, target, logFile]
 
         let stderrPipe = Pipe()
         process.standardOutput = FileHandle.nullDevice

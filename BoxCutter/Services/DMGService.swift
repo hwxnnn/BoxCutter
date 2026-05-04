@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Security
 
 enum DMGError: LocalizedError {
     case mountFailed(String)
@@ -75,8 +76,7 @@ enum DMGService {
                    ?? ""
         }
 
-        let codeSigPath = url.appendingPathComponent("Contents/_CodeSignature/CodeResources").path
-        let isSigned = FileManager.default.fileExists(atPath: codeSigPath)
+        let isSigned = isCodeSignatureValid(at: url)
 
         let installedURL = URL(fileURLWithPath: "/Applications/\(name).app")
         var installedVersion: String? = nil
@@ -107,14 +107,10 @@ enum DMGService {
         onProgress: @escaping @Sendable (Double) -> Void
     ) async throws -> URL {
         let destination = URL(fileURLWithPath: "/Applications/\(source.appName).app")
+        let temporaryDestination = URL(fileURLWithPath: "/Applications/.BoxCutter-\(UUID().uuidString)-\(source.appName).app")
         let fm = FileManager.default
 
-        if fm.fileExists(atPath: destination.path) {
-            try? fm.trashItem(at: destination, resultingItemURL: nil)
-            if fm.fileExists(atPath: destination.path) {
-                try fm.removeItem(at: destination)
-            }
-        }
+        try? fm.removeItem(at: temporaryDestination)
 
         let totalFiles = source.fileCount
         nonisolated(unsafe) var copiedFiles = 0
@@ -122,7 +118,7 @@ enum DMGService {
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-            process.arguments = ["-V", source.appURL.path, destination.path]
+            process.arguments = ["-V", source.appURL.path, temporaryDestination.path]
 
             let pipe = Pipe()
             process.standardOutput = pipe
@@ -142,10 +138,20 @@ enum DMGService {
 
             process.terminationHandler = { proc in
                 pipe.fileHandleForReading.readabilityHandler = nil
-                Task { @MainActor in onProgress(1.0) }
                 if proc.terminationStatus == 0 {
-                    continuation.resume(returning: destination)
+                    do {
+                        let installedURL = try finalizeAppCopy(
+                            from: temporaryDestination,
+                            to: destination
+                        )
+                        Task { @MainActor in onProgress(1.0) }
+                        continuation.resume(returning: installedURL)
+                    } catch {
+                        removeAppCopy(at: temporaryDestination)
+                        continuation.resume(throwing: error)
+                    }
                 } else {
+                    removeAppCopy(at: temporaryDestination)
                     continuation.resume(
                         throwing: DMGError.copyFailed(
                             "ditto exited with code \(proc.terminationStatus)"
@@ -158,7 +164,32 @@ enum DMGService {
                 try process.run()
             } catch {
                 pipe.fileHandleForReading.readabilityHandler = nil
+                removeAppCopy(at: temporaryDestination)
                 continuation.resume(throwing: DMGError.copyFailed(error.localizedDescription))
+            }
+        }
+    }
+
+    // MARK: - Orphan cleanup
+
+    /// Removes any leftover hidden staging bundles from a prior crashed/killed install.
+    /// Backup bundles are intentionally preserved because failed replacement errors may
+    /// point the user at them for manual recovery.
+    /// Cheap to run at app launch — typically zero entries match.
+    nonisolated static func cleanupOrphanedStagingBundles() {
+        let fm = FileManager.default
+        let applications = URL(fileURLWithPath: "/Applications")
+        guard let entries = try? fm.contentsOfDirectory(
+            at: applications,
+            includingPropertiesForKeys: nil,
+            options: []
+        ) else { return }
+
+        for entry in entries {
+            let name = entry.lastPathComponent
+            if name.hasPrefix(".BoxCutter-"),
+               !name.hasPrefix(".BoxCutter-backup-") {
+                try? fm.removeItem(at: entry)
             }
         }
     }
@@ -197,6 +228,72 @@ enum DMGService {
         var count = 0
         for _ in enumerator { count += 1 }
         return count
+    }
+
+    nonisolated private static func isCodeSignatureValid(at url: URL) -> Bool {
+        var staticCode: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(url as CFURL, [], &staticCode) == errSecSuccess,
+              let code = staticCode else {
+            return false
+        }
+
+        // Default flags rather than strict+deep: the latter is stricter than
+        // Gatekeeper-at-launch and produces false negatives on legitimately signed
+        // apps (Electron bundles, older Sparkle, stray .DS_Store inside the bundle).
+        return SecStaticCodeCheckValidity(code, [], nil) == errSecSuccess
+    }
+
+    nonisolated private static func finalizeAppCopy(from temporaryURL: URL, to destinationURL: URL) throws -> URL {
+        let fm = FileManager.default
+        let backupURL = URL(
+            fileURLWithPath: "/Applications/.BoxCutter-backup-\(UUID().uuidString)-\(destinationURL.lastPathComponent)"
+        )
+
+        if fm.fileExists(atPath: destinationURL.path) {
+            do {
+                try fm.moveItem(at: destinationURL, to: backupURL)
+            } catch {
+                throw DMGError.copyFailed("Failed to move existing app aside: \(error.localizedDescription)")
+            }
+
+            do {
+                try fm.moveItem(at: temporaryURL, to: destinationURL)
+                trashOrRemove(backupURL)
+            } catch {
+                if !fm.fileExists(atPath: destinationURL.path),
+                   (try? fm.moveItem(at: backupURL, to: destinationURL)) != nil {
+                    throw DMGError.copyFailed("Failed to replace existing app: \(error.localizedDescription)")
+                }
+                if fm.fileExists(atPath: backupURL.path) {
+                    throw DMGError.copyFailed(
+                        "Failed to replace existing app: \(error.localizedDescription). " +
+                        "Your previous version was preserved at \(backupURL.path)."
+                    )
+                }
+                throw DMGError.copyFailed("Failed to replace existing app: \(error.localizedDescription)")
+            }
+        } else {
+            do {
+                try fm.moveItem(at: temporaryURL, to: destinationURL)
+            } catch {
+                throw DMGError.copyFailed("Failed to move app into Applications: \(error.localizedDescription)")
+            }
+        }
+
+        return destinationURL
+    }
+
+    nonisolated private static func trashOrRemove(_ url: URL) {
+        let fm = FileManager.default
+        do {
+            try fm.trashItem(at: url, resultingItemURL: nil)
+        } catch {
+            try? fm.removeItem(at: url)
+        }
+    }
+
+    nonisolated private static func removeAppCopy(at url: URL) {
+        try? FileManager.default.removeItem(at: url)
     }
 
     /// Non-blocking process runner using terminationHandler instead of waitUntilExit.

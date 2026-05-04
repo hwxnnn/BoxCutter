@@ -17,7 +17,7 @@ enum PackageInspector {
 
     // MARK: - Quick Inspection (fast — runs on file drop)
 
-    static func inspectQuick(url: URL) async throws -> PackageInfo {
+    nonisolated static func inspectQuick(url: URL) async throws -> PackageInfo {
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw InspectionError.fileNotFound(url)
         }
@@ -56,7 +56,7 @@ enum PackageInspector {
 
     // MARK: - Detail Inspection (lazy — runs on "Details" tap)
 
-    static func inspectDetails(info: inout PackageInfo) async {
+    nonisolated static func inspectDetails(info: inout PackageInfo) async {
         let url = info.fileURL
 
         async let files = Task.detached { try? Self.fetchPayloadFiles(url: url) }.value
@@ -84,7 +84,7 @@ enum PackageInspector {
         let location: String
     }
 
-    private static func fetchPackageInfo(url: URL) throws -> PkgMetadata {
+    nonisolated private static func fetchPackageInfo(url: URL) throws -> PkgMetadata {
         let output = try runProcess("/usr/sbin/installer", arguments: ["-pkginfo", "-pkg", url.path])
         return parsePkgInfo(output)
     }
@@ -95,12 +95,12 @@ enum PackageInspector {
         let chain: [String]
     }
 
-    private static func fetchSignatureInfo(url: URL) throws -> SignatureInfo {
+    nonisolated private static func fetchSignatureInfo(url: URL) throws -> SignatureInfo {
         let output = try runProcess("/usr/sbin/pkgutil", arguments: ["--check-signature", url.path])
         return parseSignatureInfo(output)
     }
 
-    private static func fetchPayloadFiles(url: URL) throws -> [String] {
+    nonisolated private static func fetchPayloadFiles(url: URL) throws -> [String] {
         let output = try runProcess("/usr/sbin/pkgutil", arguments: ["--payload-files", url.path])
         return output.components(separatedBy: "\n").filter { !$0.isEmpty }
     }
@@ -111,7 +111,7 @@ enum PackageInspector {
         let license: String
     }
 
-    private static func fetchScriptAndLicenseInfo(url: URL) throws -> PackageDetail {
+    nonisolated private static func fetchScriptAndLicenseInfo(url: URL) throws -> PackageDetail {
         let tmpDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("BoxCutter-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tmpDir) }
@@ -159,7 +159,7 @@ enum PackageInspector {
 
     // MARK: - Process Runner
 
-    private static func runProcess(_ path: String, arguments: [String]) throws -> String {
+    nonisolated private static func runProcess(_ path: String, arguments: [String]) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = arguments
@@ -177,7 +177,7 @@ enum PackageInspector {
 
     // MARK: - Parsers
 
-    private static func parsePkgInfo(_ output: String) -> PkgMetadata {
+    nonisolated private static func parsePkgInfo(_ output: String) -> PkgMetadata {
         var name = ""
         var identifier = ""
         var version = ""
@@ -202,7 +202,7 @@ enum PackageInspector {
         return PkgMetadata(name: name, identifier: identifier, version: version, location: location)
     }
 
-    private static func parseSignatureInfo(_ output: String) -> SignatureInfo {
+    nonisolated private static func parseSignatureInfo(_ output: String) -> SignatureInfo {
         let lines = output.components(separatedBy: "\n")
         var isSigned = false
         var status = "Unsigned"

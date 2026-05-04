@@ -28,6 +28,11 @@ extension Notification.Name {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Sweep any hidden staging bundles left behind by a prior crashed install.
+        Task.detached { DMGService.cleanupOrphanedStagingBundles() }
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             let ext = url.pathExtension.lowercased()

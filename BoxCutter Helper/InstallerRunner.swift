@@ -8,6 +8,10 @@ class InstallerRunner: NSObject, HelperProtocol {
         self.connection = connection
     }
 
+    func ping(withReply reply: @escaping (Bool) -> Void) {
+        reply(true)
+    }
+
     func installPackage(atPath path: String, target: String, withReply reply: @escaping (Bool, String) -> Void) {
         // Canonicalize path to prevent traversal attacks
         let canonicalPath = URL(fileURLWithPath: path).standardized.path

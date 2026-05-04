@@ -1,0 +1,12 @@
+.DS_Store
+DerivedData/
+build/
+
+# Xcode user-specific state
+xcuserdata/
+*.xcuserstate
+
+# Swift/Xcode transient files
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint

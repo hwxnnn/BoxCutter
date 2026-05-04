@@ -31,11 +31,37 @@ class XPCClient {
     func installPackage(atPath path: String, target: String) async -> (Bool, String) {
         if connection == nil { connect() }
 
+        // Ping is a readiness probe, not a gate. If it fails, the resident helper is
+        // either an older version that doesn't implement `ping` (post-upgrade, before
+        // the v1 daemon idle-exits) or genuinely broken. In the first case the v1
+        // helper still services `installPackage` fine; invalidate to push launchd
+        // toward the new on-disk binary on the next connection, then proceed.
+        let readiness = await pingHelper()
+        if !readiness.0 {
+            disconnect()
+            connect()
+        }
+
         let once = OnceResume()
 
         return await withCheckedContinuation { continuation in
-            // Start a timeout that invalidates the connection if the helper doesn't respond.
-            // Give launchd time to cold-start the daemon on first invocation.
+            guard let proxy = connection?.remoteObjectProxyWithErrorHandler({ error in
+                once.resume(continuation, returning: (false, "XPC connection error: \(error.localizedDescription)"))
+            }) as? HelperProtocol else {
+                once.resume(continuation, returning: (false, "Failed to create helper proxy."))
+                return
+            }
+            proxy.installPackage(atPath: path, target: target) { success, message in
+                once.resume(continuation, returning: (success, message))
+            }
+        }
+    }
+
+    private func pingHelper() async -> (Bool, String) {
+        let once = OnceResume()
+
+        return await withCheckedContinuation { continuation in
+            // Give launchd time to cold-start the daemon before the long install begins.
             let timeoutTask = Task {
                 try? await Task.sleep(for: .seconds(30))
                 guard !Task.isCancelled else { return }
@@ -51,9 +77,13 @@ class XPCClient {
                 once.resume(continuation, returning: (false, "Failed to create helper proxy."))
                 return
             }
-            proxy.installPackage(atPath: path, target: target) { success, message in
+
+            proxy.ping { isReady in
                 timeoutTask.cancel()
-                once.resume(continuation, returning: (success, message))
+                let result = isReady
+                    ? (true, "")
+                    : (false, "Helper is not ready.")
+                once.resume(continuation, returning: result)
             }
         }
     }
