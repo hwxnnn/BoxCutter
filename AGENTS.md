@@ -4,10 +4,7 @@
 
 - Language: Swift 5, SwiftUI
 - Platform: macOS 15.0+ (`MACOSX_DEPLOYMENT_TARGET = 15.0`; helper target uses `26.2`)
-- Build: Xcode 16+, `xcodebuild`
 - No package manager, no third-party deps. Pure Apple SDKs (SwiftUI, AppKit, ServiceManagement, Security, XPC).
-- Bundle ID: `com.hwxnnn.BoxCutter`.
-- Marketing version: `1.1`.
 - App is **not sandboxed**. Do not claim otherwise without changing entitlements.
 
 ## Layout
