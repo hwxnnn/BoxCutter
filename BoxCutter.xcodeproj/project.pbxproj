@@ -13,7 +13,7 @@
 		D5928B9D2F4853990014694F /* ProgressProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7A2F4849DD0014694F /* ProgressProtocol.swift */; };
 		D5928B9E2F4853990014694F /* SharedConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B7B2F4849DD0014694F /* SharedConstants.swift */; };
 		D5928B9F2F4853990014694F /* HelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5928B792F4849DD0014694F /* HelperProtocol.swift */; };
-		D5928BA12F4853E80014694F /* BoxCutter Helper in CopyFiles */ = {isa = PBXBuildFile; fileRef = D5928B912F4852EC0014694F /* BoxCutterHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		D5928BA12F4853E80014694F /* BoxCutterHelper in CopyFiles */ = {isa = PBXBuildFile; fileRef = D5928B912F4852EC0014694F /* BoxCutterHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		D5928BA42F4854000014694F /* com.hwxnnn.BoxCutter-Helper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D5928BA32F4854000014694F /* com.hwxnnn.BoxCutter-Helper.plist */; };
 /* End PBXBuildFile section */
 
@@ -33,20 +33,19 @@
 			dstPath = Contents/Library/LaunchDaemons;
 			dstSubfolderSpec = 1;
 			files = (
-				D5928BA12F4853E80014694F /* BoxCutter Helper in CopyFiles */,
+				D5928BA12F4853E80014694F /* BoxCutterHelper in CopyFiles */,
 				D5928BA42F4854000014694F /* com.hwxnnn.BoxCutter-Helper.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
-
 /* Begin PBXFileReference section */
 		D5928B422F48413F0014694F /* BoxCutter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BoxCutter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D5928B792F4849DD0014694F /* HelperProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperProtocol.swift; sourceTree = "<group>"; };
 		D5928B7A2F4849DD0014694F /* ProgressProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressProtocol.swift; sourceTree = "<group>"; };
 		D5928B7B2F4849DD0014694F /* SharedConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedConstants.swift; sourceTree = "<group>"; };
-		D5928B912F4852EC0014694F /* BoxCutterHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "BoxCutter Helper"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D5928B912F4852EC0014694F /* BoxCutterHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = BoxCutterHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		D5928BA32F4854000014694F /* com.hwxnnn.BoxCutter-Helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "com.hwxnnn.BoxCutter-Helper.plist"; path = "BoxCutter Helper/com.hwxnnn.BoxCutter-Helper.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -101,6 +100,7 @@
 				D5928B922F4852EC0014694F /* BoxCutter Helper */,
 				D5928B432F48413F0014694F /* Products */,
 				D5928B542F4846220014694F /* Shared */,
+				D5A1EDAF2FA8AAEF00A16E42 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -121,6 +121,14 @@
 				D5928B7B2F4849DD0014694F /* SharedConstants.swift */,
 			);
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		D5A1EDAF2FA8AAEF00A16E42 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				D5928BA32F4854000014694F /* com.hwxnnn.BoxCutter-Helper.plist */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -369,6 +377,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = BoxCutter;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -385,7 +394,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hwxnnn.BoxCutter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -421,7 +430,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hwxnnn.BoxCutter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

@@ -34,16 +34,29 @@ Fully vibecoded. Sorry.
 
 ## Features
 
-- **Instant drag-and-drop** -- Drop any `.pkg` installer or `.dmg` disk image onto the window. BoxCutter takes care of everything from there.
-- **One-step DMG installs** -- No more mounting, dragging to Applications, and ejecting. BoxCutter mounts the image, finds the app, copies it, and unmounts — automatically.
-- **Package inspection** -- View metadata, payload files, and pre/post-install script warnings before committing to a `.pkg` install.
-- **Parallel DMG app installs** -- When a disk image contains multiple apps, BoxCutter installs them all concurrently.
-- **Privileged Helper** -- A dedicated launchd daemon handles elevated-privilege package installs via XPC, keeping root operations out of the main app process.
-- **Quarantine fix** -- One-click removal of the macOS quarantine flag on apps installed from DMGs.
-- **Safety profiles** -- Maximum, Balanced, or Fast presets control confirmation prompts and post-install cleanup.
-- **Verbose output** -- Real-time installer logs and a progress bar during `.pkg` installations.
-- **Auto-close** -- Closes automatically after a successful install, with a configurable delay.
-- **Sound notifications** -- Configurable system sound plays on completion.
+**Instant drag-and-drop**
+Drop any `.pkg` installer or `.dmg` disk image onto the window. BoxCutter takes care of everything from there.
+
+**One-step DMG installs**
+No more mounting, dragging to Applications, and ejecting. BoxCutter mounts the image, finds the app, copies it, and unmounts automatically.
+
+**Package inspection**
+View metadata, payload files, and pre/post-install script warnings before committing to a `.pkg` install.
+
+**Parallel DMG app installs**
+When a disk image contains multiple apps, BoxCutter installs them all concurrently.
+
+**Privileged Helper**
+A dedicated launchd daemon handles elevated-privilege package installs via XPC, keeping root operations out of the main app process.
+
+**Quarantine fix**
+One-click removal of the macOS quarantine flag on apps installed from DMGs.
+
+**Safety profiles**
+Maximum, Balanced, or Fast presets control confirmation prompts and post-install cleanup.
+
+**Verbose output**
+Real-time installer logs and a progress bar during `.pkg` installations.
 
 ## Requirements
 
@@ -56,7 +69,4 @@ Fully vibecoded. Sorry.
 2. Open `BoxCutter.xcodeproj` in Xcode.
 3. Select your Development Team in the project settings for both the **BoxCutter** and **BoxCutter Helper** targets.
 4. Build (`Cmd + B`).
-
-The Privileged Helper is embedded automatically during the build process. On first launch, macOS will prompt you to approve the helper daemon in **System Settings > Login Items & Extensions**.
-
-Release builds are configured for Developer ID signing. To archive or distribute a signed Release build, install a matching **Developer ID Application** certificate for the selected team. Local Debug builds can be signed with an Apple Development certificate.
+The Privileged Helper is embedded automatically during the build process.
