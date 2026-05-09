@@ -5,7 +5,7 @@
 <h1 align="center">BoxCutter</h1>
 
 <p align="center">
-The fastest way to install software on macOS.<br>
+How installing apps should be on macOS<br>
 Drop a <code>.pkg</code> or <code>.dmg</code> — BoxCutter installs it in seconds, no friction.
 </p>
 
