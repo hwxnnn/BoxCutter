@@ -23,12 +23,7 @@ Fully vibecoded. Sorry.
   <tr>
     <td align="center"><img src="assets/main-view.png" width="300"><br><sub>Drop Zone</sub></td>
     <td align="center"><img src="assets/pkg-preview.png" width="300"><br><sub>.pkg Preview</sub></td>
-    <td align="center"><img src="assets/pkg-progress.png" width="300"><br><sub>.pkg Installation Progress</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="assets/pkg-complete.png" width="300"><br><sub>.pkg Complete</sub></td>
     <td align="center"><img src="assets/dmg-preview.png" width="300"><br><sub>.dmg Preview</sub></td>
-    <td align="center"><img src="assets/dmg-complete.png" width="300"><br><sub>.dmg Complete</sub></td>
   </tr>
 </table>
 
