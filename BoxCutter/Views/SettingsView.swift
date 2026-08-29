@@ -2,51 +2,20 @@ import SwiftUI
 
 struct SettingsView: View {
 
-    private enum SettingsPane: String, CaseIterable, Identifiable {
-        case general
-        case installation
-        case output
-        case permissions
-        case advanced
-
-        var id: Self { self }
-
-        var title: String {
-            switch self {
-            case .general: return "General"
-            case .installation: return "Installation"
-            case .output: return "Output"
-            case .permissions: return "Permissions"
-            case .advanced: return "Advanced"
-            }
-        }
-
-        var symbol: String {
-            switch self {
-            case .general: return "slider.horizontal.3"
-            case .installation: return "shippingbox"
-            case .output: return "text.justify.left"
-            case .permissions: return "lock.shield"
-            case .advanced: return "wrench.and.screwdriver"
-            }
-        }
-    }
-
     @Bindable private var settings = AppSettings.shared
     private let helperManager = HelperManager.shared
 
-    @State private var selectedPane: SettingsPane? = .general
     @State private var helperActionError: String?
     @State private var showResetConfirmation = false
+    @State private var helperTestResult: (success: Bool, message: String)?
+    @State private var helperTestRunning = false
 
-    private let sounds = [
+    private let xpcClient = XPCClient()
+
+    private let systemSounds = [
         "Basso", "Blow", "Bottle", "Frog", "Funk", "Glass",
         "Hero", "Morse", "Ping", "Pop", "Purr", "Sosumi", "Submarine", "Tink"
     ]
-
-    private var activePane: SettingsPane {
-        selectedPane ?? .general
-    }
 
     private var safetyProfileBinding: Binding<AppSettings.SafetyProfile> {
         Binding(
@@ -63,14 +32,22 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationSplitView(columnVisibility: .constant(.all)) {
-            sidebar
-        } detail: {
-            detail
+        TabView {
+            general
+                .tabItem { Label("General", systemImage: "slider.horizontal.3") }
+
+            installation
+                .tabItem { Label("Installation", systemImage: "shippingbox") }
+
+            output
+                .tabItem { Label("Output", systemImage: "text.justify.left") }
+
+            permissions
+                .tabItem { Label("Permissions", systemImage: "lock.shield") }
+
+            advanced
+                .tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
         }
-        .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 900, minHeight: 620)
-        .toolbar(removing: .sidebarToggle)
         .onAppear { helperManager.refreshStatus() }
         .confirmationDialog(
             "Restore all settings to defaults?",
@@ -86,263 +63,202 @@ struct SettingsView: View {
         }
     }
 
-    private var sidebar: some View {
-        List(selection: $selectedPane) {
-            ForEach(SettingsPane.allCases) { pane in
-                Label(pane.title, systemImage: pane.symbol)
-                    .tag(Optional(pane))
-            }
-        }
-        .listStyle(.sidebar)
-        .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
-        .toolbar(removing: .sidebarToggle)
-    }
+    // MARK: - Tabs
 
-    private var detail: some View {
-        GeometryReader { geometry in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    switch activePane {
-                    case .general:
-                        generalContent
-                    case .installation:
-                        installationContent
-                    case .output:
-                        outputContent
-                    case .permissions:
-                        permissionsContent
-                    case .advanced:
-                        advancedContent
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .topLeading)
-                .padding(.horizontal, 24)
-                .padding(.top, 14)
-                .padding(.bottom, 24)
-            }
-        }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle(activePane.title)
-    }
-
-    // MARK: - Pages
-
-    private var generalContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            sectionCard("Window") {
-                toggleRow(
+    private var general: some View {
+        settingsForm {
+            Section("Window") {
+                toggle(
                     "Always on top",
                     "Keep BoxCutter above other app windows.",
                     isOn: $settings.alwaysOnTop
                 )
             }
 
-            sectionCard("Completion") {
-                toggleRow(
+            Section("Completion") {
+                toggle(
                     "Auto close after install",
                     "Close BoxCutter after completion when the app is no longer focused.",
                     isOn: $settings.autoCloseAfterInstall
                 )
 
                 if settings.autoCloseAfterInstall {
-                    Divider()
-                    controlRow("Auto-close delay") {
+                    LabeledContent("Auto-close delay") {
                         HStack(spacing: 10) {
                             Slider(value: $settings.autoCloseDelay, in: 1...30, step: 1)
-                                .frame(width: 190)
+                                .frame(width: 150)
                             Text("\(Int(settings.autoCloseDelay))s")
                                 .font(.body.monospacedDigit())
                                 .foregroundStyle(.secondary)
-                                .frame(width: 38, alignment: .trailing)
+                                .frame(width: 32, alignment: .trailing)
                         }
                     }
                 }
 
-                Divider()
-                toggleRow(
+                toggle(
                     "Play completion sound",
-                    "Play a system sound on success or failure.",
+                    "Play a sound on success or failure.",
                     isOn: $settings.playSoundOnComplete
                 )
 
                 if settings.playSoundOnComplete {
-                    Divider()
-                    controlRow(
-                        "Sound",
-                        "Pick a sound and preview it instantly."
-                    ) {
+                    LabeledContent("Sound") {
                         HStack(spacing: 8) {
                             Picker("Completion sound", selection: $settings.completionSound) {
-                                ForEach(sounds, id: \.self) { sound in
+                                // Bundled pair first, separated from the macOS sounds.
+                                Text(CompletionSound.defaultName)
+                                    .tag(CompletionSound.defaultName)
+                                Divider()
+                                ForEach(systemSounds, id: \.self) { sound in
                                     Text(sound).tag(sound)
                                 }
                             }
                             .labelsHidden()
-                            .frame(width: 170)
+                            .frame(width: 150)
 
                             Button {
-                                NSSound(named: NSSound.Name(settings.completionSound))?.play()
+                                CompletionSound.playSuccess(settings.completionSound)
                             } label: {
                                 Image(systemName: "play.fill")
                             }
-                            .help("Preview selected sound")
+                            .help("Preview the success sound")
                         }
                     }
                 }
+            }
 
-                Divider()
-                toggleRow(
-                    "Open installed app automatically (.dmg)",
-                    "Open the app after install when the DMG contains one selected app.",
+            Section {
+                toggle(
+                    "Open installed app automatically",
+                    "Open the app after install when the image contains one selected app.",
                     isOn: $settings.autoOpenSingleDMGApp
                 )
 
-                Divider()
-                toggleRow(
-                    "Show installed app in Finder automatically (.dmg)",
-                    "Reveal the app in Finder after install when the DMG contains one selected app.",
+                toggle(
+                    "Reveal installed app in Finder",
+                    "Show the app in Finder after install when the image contains one selected app.",
                     isOn: $settings.autoRevealSingleDMGApp
                 )
+            } header: {
+                Text("After a Disk Image Install")
             }
         }
     }
 
-    private var installationContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            sectionCard("Packages (.pkg)") {
-                toggleRow(
+    private var installation: some View {
+        settingsForm {
+            Section {
+                Picker("Safety preset", selection: safetyProfileBinding) {
+                    ForEach(AppSettings.SafetyProfile.allCases) { profile in
+                        Text(profile.title).tag(profile)
+                    }
+                }
+            } footer: {
+                Text("Choose a baseline, then fine-tune the individual options below.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Packages (.pkg)") {
+                toggle(
                     "Confirm before installing",
                     "Ask for confirmation before running the installer.",
                     isOn: $settings.confirmBeforeInstall
                 )
 
-                Divider()
-                toggleRow(
+                toggle(
                     "Move source file to Trash",
-                    "Move the original .pkg to Trash after successful install.",
+                    "Move the original .pkg to Trash after a successful install.",
                     isOn: $settings.trashAfterInstall
+                )
+
+                toggle(
+                    "Remember last install location",
+                    "Reuse your previous package install target as the next default.",
+                    isOn: $settings.rememberInstallTarget
                 )
             }
 
-            sectionCard("Disk Images (.dmg)") {
-                toggleRow(
+            Section("Disk Images (.dmg)") {
+                toggle(
                     "Confirm before installing",
                     "Ask for confirmation before copying apps from the mounted image.",
                     isOn: $settings.confirmBeforeDMGInstall
                 )
 
-                Divider()
-                toggleRow(
+                toggle(
                     "Move source file to Trash",
-                    "Move the original .dmg to Trash after successful install.",
+                    "Move the original .dmg to Trash after a successful install.",
                     isOn: $settings.trashDMGAfterInstall
-                )
-            }
-
-            sectionCard("Safety Preset") {
-                controlRow(
-                    "Preset",
-                    "Choose a baseline, then fine-tune individual options above."
-                ) {
-                    Picker("Safety preset", selection: safetyProfileBinding) {
-                        ForEach(AppSettings.SafetyProfile.allCases) { profile in
-                            Text(profile.title).tag(profile)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 190)
-                }
-            }
-
-            sectionCard("Install Location (.pkg)") {
-                toggleRow(
-                    "Remember last install location",
-                    "Reuse your previous package install target as the next default location.",
-                    isOn: $settings.rememberInstallTarget
                 )
             }
         }
     }
 
-    private var outputContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            sectionCard("Output Preset") {
-                controlRow(
-                    "Preset",
-                    "Presets only change output options, not install safety settings."
-                ) {
-                    Picker("Output preset", selection: outputProfileBinding) {
-                        ForEach(AppSettings.OutputProfile.allCases) { profile in
-                            Text(profile.title).tag(profile)
-                        }
+    private var output: some View {
+        settingsForm {
+            Section {
+                Picker("Output preset", selection: outputProfileBinding) {
+                    ForEach(AppSettings.OutputProfile.allCases) { profile in
+                        Text(profile.title).tag(profile)
                     }
-                    .labelsHidden()
-                    .frame(width: 190)
                 }
+            } footer: {
+                Text("Presets change only what BoxCutter displays, never install safety.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
-            sectionCard("Package Installer View") {
-                toggleRow(
+            Section("Package Installer View") {
+                toggle(
                     "Show progress bar",
                     "Display an install progress indicator when available.",
                     isOn: $settings.showProgressBar
                 )
 
-                Divider()
-                toggleRow(
+                toggle(
                     "Show verbose installer output",
                     "Show detailed output from the installer process.",
                     isOn: $settings.showVerboseOutput
                 )
 
-                Divider()
-                toggleRow(
+                toggle(
                     "Warn about install scripts",
                     "Highlight preinstall and postinstall scripts in package details.",
                     isOn: $settings.showScriptWarnings
                 )
 
-                Divider()
-                toggleRow(
+                toggle(
                     "Show payload file list",
-                    "Show files that will be installed from the package.",
+                    "List the files a package will install.",
                     isOn: $settings.showPayloadFiles
                 )
             }
         }
     }
 
-    private var permissionsContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            sectionCard("Privilege Escalation") {
-                controlRow(
-                    "Method",
-                    "How BoxCutter obtains administrator privileges to install packages."
-                ) {
-                    Picker("Method", selection: Binding(
-                        get: { settings.privilegeMethod },
-                        set: { settings.privilegeMethod = $0 }
-                    )) {
-                        ForEach(AppSettings.PrivilegeMethod.allCases) { method in
-                            Text(method.title).tag(method)
-                        }
+    private var permissions: some View {
+        settingsForm {
+            Section {
+                Picker("Method", selection: Binding(
+                    get: { settings.privilegeMethod },
+                    set: { settings.privilegeMethod = $0 }
+                )) {
+                    ForEach(AppSettings.PrivilegeMethod.allCases) { method in
+                        Text(method.title).tag(method)
                     }
-                    .labelsHidden()
-                    .frame(width: 190)
                 }
-
-                Divider()
-
+            } header: {
+                Text("Privilege Escalation")
+            } footer: {
                 Text(settings.privilegeMethod.description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 2)
             }
 
             if settings.prefersHelper {
-                sectionCard("Helper Daemon") {
-                    controlRow("Status") {
+                Section("Helper Daemon") {
+                    LabeledContent("Status") {
                         HStack(spacing: 6) {
                             Circle()
                                 .fill(helperManager.statusColor)
@@ -357,18 +273,13 @@ struct SettingsView: View {
                     }
 
                     if helperManager.needsApproval {
-                        Divider()
-                        controlRow(
-                            "Approval required",
-                            "Allow BoxCutter in System Settings > Login Items."
-                        ) {
-                            Button("Open Login Items") {
-                                openLoginItemsSettings()
-                            }
+                        LabeledContent {
+                            Button("Open Login Items") { openLoginItemsSettings() }
+                        } label: {
+                            Text("Approval required")
+                            Text("Allow BoxCutter in System Settings \u{203A} Login Items.")
                         }
                     }
-
-                    Divider()
 
                     HStack(spacing: 10) {
                         Button("Install Helper") { doInstallHelper() }
@@ -376,22 +287,29 @@ struct SettingsView: View {
                             .disabled(helperManager.isHelperInstalled)
 
                         Button("Uninstall") { doUninstallHelper() }
-                            .buttonStyle(.bordered)
                             .disabled(!helperManager.isHelperInstalled && !helperManager.needsApproval)
 
                         Spacer()
 
-                        Button("Refresh") {
-                            helperActionError = nil
-                            helperManager.refreshStatus()
+                        // Outcome glyph sits immediately left of the button that produced it.
+                        // The message lives in the tooltip so the row stays one line.
+                        if helperTestRunning {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else if let result = helperTestResult {
+                            Image(systemName: result.success
+                                  ? "checkmark.circle.fill"
+                                  : "xmark.circle.fill")
+                                .foregroundStyle(result.success ? .green : .red)
+                                .help(result.message)
                         }
-                        .buttonStyle(.bordered)
+
+                        Button("Test") { runHelperTest() }
+                            .disabled(helperTestRunning)
                     }
-                    .padding(.vertical, 2)
 
                     if let helperActionError {
-                        Divider()
-                        Text(helperActionError)
+                        Label(helperActionError, systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
@@ -400,21 +318,19 @@ struct SettingsView: View {
         }
     }
 
-    private var advancedContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            sectionCard("Maintenance") {
-                HStack(spacing: 10) {
-                    Button("Restore Defaults") {
+    private var advanced: some View {
+        settingsForm {
+            Section {
+                LabeledContent {
+                    Button("Restore Defaults\u{2026}", role: .destructive) {
                         showResetConfirmation = true
                     }
-                    .buttonStyle(.bordered)
-
-                    Button("Refresh Helper Status") {
-                        helperActionError = nil
-                        helperManager.refreshStatus()
-                    }
-                    .buttonStyle(.bordered)
+                } label: {
+                    Text("Reset all preferences")
+                    Text("Returns every option on every tab to its original value.")
                 }
+            } header: {
+                Text("Maintenance")
             }
         }
     }
@@ -435,6 +351,36 @@ struct SettingsView: View {
         }
     }
 
+    /// Refreshes the daemon status and probes it in one action. Status alone reports
+    /// "Installed & Running" even when the daemon cannot be reached, so only the probe
+    /// proves the helper actually works.
+    private func runHelperTest() {
+        helperTestRunning = true
+        helperTestResult = nil
+        helperActionError = nil
+
+        Task {
+            helperManager.refreshStatus()
+
+            // Skip the probe when there is nothing registered to answer it — otherwise
+            // the user waits out the full diagnostic timeout for a foregone conclusion.
+            guard helperManager.isHelperInstalled else {
+                helperTestResult = (
+                    false,
+                    "Helper is not running (status: \(helperManager.displayStatus)). Install it first."
+                )
+                helperTestRunning = false
+                return
+            }
+
+            let result = await xpcClient.runDiagnostic()
+            helperTestResult = (result.0, result.1)
+            // The probe can itself reveal a stale registration, so re-read the status.
+            helperManager.refreshStatus()
+            helperTestRunning = false
+        }
+    }
+
     private func openLoginItemsSettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") else {
             return
@@ -444,65 +390,25 @@ struct SettingsView: View {
 
     // MARK: - Components
 
-    private func sectionCard<C: View>(
-        _ title: String,
-        @ViewBuilder content: () -> C
-    ) -> some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 14) {
-                content()
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-        } label: {
-            Text(title)
-                .font(.headline)
-                .padding(.bottom, 2)
+    /// Every tab shares one size so switching tabs doesn't resize the window.
+    private func settingsForm<C: View>(@ViewBuilder content: () -> C) -> some View {
+        Form {
+            content()
         }
+        .formStyle(.grouped)
+        .frame(width: 520, height: 400)
     }
 
-    private func toggleRow(_ title: String, _ description: String, isOn: Binding<Bool>) -> some View {
+    /// Toggle with a secondary description line, matching System Settings rows.
+    private func toggle(_ title: String, _ description: String, isOn: Binding<Bool>) -> some View {
         Toggle(isOn: isOn) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 Text(description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-        }
-        .padding(.vertical, 2)
-    }
-
-    private func controlRow<C: View>(
-        _ title: String,
-        _ description: String? = nil,
-        @ViewBuilder control: () -> C
-    ) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                if let description {
-                    Text(description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer(minLength: 12)
-
-            control()
-        }
-        .padding(.vertical, 2)
-    }
-
-    private func valueRow(_ title: String, value: String) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Text(value)
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
         }
     }
 }

@@ -3,6 +3,7 @@ import SwiftUI
 struct DMGCompletionView: View {
 
     let apps: [InstalledApp]
+    var packages: [InstalledPackage] = []
     var installErrors: [String] = []
     let quarantineFixedApps: Set<URL>
     let onDone: () -> Void
@@ -10,6 +11,8 @@ struct DMGCompletionView: View {
     let onShowInFinder: (InstalledApp) -> Void
     let onOpenApp: (InstalledApp) -> Void
     let onFixQuarantine: (InstalledApp) -> Void
+
+    @State private var showPackageDetails = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,7 +25,7 @@ struct DMGCompletionView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Installation Complete")
                         .font(.headline)
-                    Text(apps.count == 1 ? apps[0].appName : "\(apps.count) apps installed")
+                    Text(summary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -75,8 +78,29 @@ struct DMGCompletionView: View {
                 .padding(.horizontal, 16)
 
             HStack(spacing: 8) {
-                Button("Uninstall") { onUninstall() }
-                    .foregroundStyle(.red)
+                if !packages.isEmpty {
+                    Button {
+                        showPackageDetails.toggle()
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "magnifyingglass").font(.caption2)
+                            Text("Details").font(.caption)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    // Same treatment as the License sheet: floats over the window
+                    // instead of growing it.
+                    .popover(isPresented: $showPackageDetails, arrowEdge: .top) {
+                        packageDetails
+                    }
+                }
+
+                if !apps.isEmpty {
+                    Button("Uninstall") { onUninstall() }
+                        .foregroundStyle(.red)
+                        .help("Move the newly installed apps to Trash. Packages cannot be undone.")
+                }
 
                 Spacer()
 
@@ -85,7 +109,7 @@ struct DMGCompletionView: View {
                 }
 
                 if apps.count == 1, let only = apps.first {
-                    Button("Open App") { onOpenApp(only) }
+                    Button("Open") { onOpenApp(only) }
                 }
 
                 Button("Done") { onDone() }
@@ -94,6 +118,95 @@ struct DMGCompletionView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
+    }
+
+    /// Reads naturally for apps only, packages only, or a mix.
+    private var summary: String {
+        let appPart: String? = apps.isEmpty
+            ? nil
+            : (apps.count == 1 ? apps[0].appName : "\(apps.count) apps")
+        let pkgPart: String? = packages.isEmpty
+            ? nil
+            : (packages.count == 1 ? packages[0].packageName : "\(packages.count) packages")
+
+        switch (appPart, pkgPart) {
+        case let (app?, pkg?): return "\(app) and \(pkg) installed"
+        case let (app?, nil): return apps.count == 1 ? app : "\(app) installed"
+        case let (nil, pkg?): return packages.count == 1 ? pkg : "\(pkg) installed"
+        case (nil, nil): return "Nothing installed"
+        }
+    }
+
+    // MARK: - Package details
+
+    private var packageDetails: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(packages) { pkg in
+                packageLine(
+                    name: pkg.packageName,
+                    stats: "\(formatDuration(pkg.duration)), \(formatSize(pkg.size))"
+                )
+            }
+
+            if packages.count > 1 {
+                Divider()
+                    .padding(.vertical, 2)
+                packageLine(
+                    name: "Total:",
+                    stats: "took \(formatSeconds(totalSeconds)), \(formatSize(totalSize))"
+                )
+            }
+        }
+        .padding(12)
+        .frame(width: 380)
+    }
+
+
+    /// Sum of the *rounded* per-package values, not the rounded sum. Two packages of
+    /// 7.5s each would otherwise print "7s, 7s, total 15s" and read as bad arithmetic.
+    private var totalSeconds: Int {
+        packages.reduce(0) { $0 + wholeSeconds($1.duration) }
+    }
+
+    private var totalSize: Int64 {
+        packages.reduce(0) { $0 + $1.size }
+    }
+
+    private func packageLine(name: String, stats: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(name)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 8)
+            Text(stats)
+        }
+        .font(.system(.caption2, design: .monospaced))
+        .textSelection(.enabled)
+    }
+
+    private func wholeSeconds(_ duration: Duration) -> Int {
+        let components = duration.components
+        let fraction = Double(components.attoseconds) / 1e18
+        return Int((Double(components.seconds) + fraction).rounded())
+    }
+
+    private func formatDuration(_ duration: Duration) -> String {
+        formatSeconds(wholeSeconds(duration))
+    }
+
+    /// Whole units, largest first: "2h 10m 30s", "1m 20s", "12s".
+    private func formatSeconds(_ total: Int) -> String {
+        guard total >= 1 else { return "<1s" }
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let seconds = total % 60
+        if hours > 0 { return "\(hours)h \(minutes)m \(seconds)s" }
+        if minutes > 0 { return "\(minutes)m \(seconds)s" }
+        return "\(seconds)s"
+    }
+
+    private func formatSize(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
     // MARK: - Unsigned row

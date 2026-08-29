@@ -38,26 +38,6 @@ struct CompletionView: View {
             }
             .padding(16)
 
-            // Expandable install log
-            if showLog && !outputLines.isEmpty {
-                Divider()
-                    .padding(.horizontal, 16)
-
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 1) {
-                        ForEach(Array(outputLines.enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundStyle(.primary)
-                                .textSelection(.enabled)
-                        }
-                    }
-                    .padding(8)
-                }
-                .background(.background.secondary)
-                .frame(maxHeight: 200)
-            }
-
             // Action bar
             Divider()
                 .padding(.horizontal, 16)
@@ -76,6 +56,22 @@ struct CompletionView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
+                    // Floats over the window like the License sheet rather than
+                    // resizing it, so the completion view keeps its size.
+                    .popover(isPresented: $showLog, arrowEdge: .top) {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 1) {
+                                ForEach(Array(outputLines.enumerated()), id: \.offset) { _, line in
+                                    Text(line)
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .textSelection(.enabled)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                            .padding(12)
+                        }
+                        .frame(width: 380, height: 300)
+                    }
                 }
 
                 Spacer()

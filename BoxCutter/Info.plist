@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>BoxCutter needs access to your Desktop to open installers and disk images stored there.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>BoxCutter needs access to your Downloads folder to open installers and disk images stored there.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>BoxCutter needs access to your Documents folder to open installers and disk images stored there.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>BoxCutter needs access to removable volumes to open installers and disk images stored on them.</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

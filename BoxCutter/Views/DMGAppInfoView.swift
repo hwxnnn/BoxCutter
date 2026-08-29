@@ -8,10 +8,11 @@ struct DMGAppInfoView: View {
     let onInstall: () -> Void
     let onShow: () -> Void
     let onToggleApp: (DMGAppEntry) -> Void
+    let onTogglePkg: (DMGPkgEntry) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            appList
+            itemList
                 .padding(16)
 
             Divider()
@@ -23,52 +24,107 @@ struct DMGAppInfoView: View {
         }
     }
 
-    // MARK: - App List
+    // MARK: - Item List
 
-    private var appList: some View {
+    /// Selection controls only appear when there is an actual choice to make.
+    private var isSelectable: Bool { info.itemCount > 1 }
+
+    private var itemList: some View {
         VStack(spacing: 8) {
             ForEach(info.apps) { app in
                 appRow(app)
+            }
+            ForEach(info.pkgs) { pkg in
+                pkgRow(pkg)
             }
         }
     }
 
     private func appRow(_ app: DMGAppEntry) -> some View {
-        let isSelected = info.selectedAppIDs.contains(app.appURL)
-        return HStack(spacing: 10) {
-            if info.apps.count > 1 {
+        row(
+            isSelected: info.selectedAppIDs.contains(app.appURL),
+            icon: Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path)),
+            title: app.appName,
+            subfolder: app.subfolder,
+            onTap: { onToggleApp(app) }
+        ) {
+            HStack(spacing: 8) {
+                Text(formattedSize(app.appSize))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                versionLabel(for: app)
+            }
+        } trailing: {
+            signBadge(for: app)
+        }
+    }
+
+    private func pkgRow(_ pkg: DMGPkgEntry) -> some View {
+        row(
+            isSelected: info.selectedPkgIDs.contains(pkg.pkgURL),
+            icon: Image(nsImage: NSWorkspace.shared.icon(forFile: pkg.pkgURL.path)),
+            title: pkg.pkgName,
+            subfolder: pkg.subfolder,
+            onTap: { onTogglePkg(pkg) }
+        ) {
+            Text(formattedSize(pkg.fileSize))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } trailing: {
+            Text("Installer")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.secondary.opacity(0.12), in: Capsule())
+        }
+    }
+
+    private func row<Detail: View, Trailing: View>(
+        isSelected: Bool,
+        icon: Image,
+        title: String,
+        subfolder: String,
+        onTap: @escaping () -> Void,
+        @ViewBuilder detail: () -> Detail,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 10) {
+            if isSelectable {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? Color.accentColor : Color.gray)
                     .font(.body)
             }
 
-            Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
+            icon
                 .resizable()
                 .frame(width: 44, height: 44)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(app.appName)
+                Text(title)
                     .font(.headline)
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
-                    Text(formattedSize(app.appSize))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    detail()
 
-                    versionLabel(for: app)
+                    if !subfolder.isEmpty {
+                        Label(subfolder, systemImage: "folder")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
                 }
             }
 
             Spacer()
 
-            signBadge(for: app)
+            trailing()
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            if info.apps.count > 1 {
-                onToggleApp(app)
-            }
+            if isSelectable { onTap() }
         }
     }
 
@@ -85,16 +141,18 @@ struct DMGAppInfoView: View {
 
             Button(installButtonLabel) { onInstall() }
                 .keyboardShortcut(.defaultAction)
-                .disabled(info.selectedAppIDs.isEmpty)
+                .disabled(info.selectedCount == 0)
         }
     }
 
     // MARK: - Helpers
 
     private var installButtonLabel: String {
-        let selected = info.apps.filter { info.selectedAppIDs.contains($0.appURL) }
-        guard !selected.isEmpty else { return "Install" }
-        return selected.allSatisfy { $0.installedVersion != nil } ? "Update" : "Install"
+        let selectedApps = info.selectedApps
+        // "Update" only reads true when every selected item is a replacement, so a
+        // package in the selection keeps the label at "Install".
+        guard !selectedApps.isEmpty, info.selectedPkgIDs.isEmpty else { return "Install" }
+        return selectedApps.allSatisfy { $0.installedVersion != nil } ? "Update" : "Install"
     }
 
     @ViewBuilder
@@ -126,7 +184,7 @@ struct DMGAppInfoView: View {
     }
 }
 
-#Preview("Single App") {
+#Preview("App + Package") {
     DMGAppInfoView(
         info: DMGInfo(
             dmgURL: URL(fileURLWithPath: "/tmp/Example.dmg"),
@@ -141,12 +199,22 @@ struct DMGAppInfoView: View {
                     appSize: 125_000_000,
                     fileCount: 3200,
                     isCodeSigned: false,
-                    installedVersion: "2.4.0"
+                    installedVersion: "2.4.0",
+                    subfolder: ""
                 )
             ],
-            selectedAppIDs: [URL(fileURLWithPath: "/Volumes/Example/MyApp.app")]
+            pkgs: [
+                DMGPkgEntry(
+                    pkgURL: URL(fileURLWithPath: "/Volumes/Example/Extras/Drivers.pkg"),
+                    pkgName: "Drivers",
+                    fileSize: 14_000_000,
+                    subfolder: "Extras"
+                )
+            ],
+            selectedAppIDs: [URL(fileURLWithPath: "/Volumes/Example/MyApp.app")],
+            selectedPkgIDs: []
         ),
-        onCancel: {}, onInstall: {}, onShow: {}, onToggleApp: { _ in }
+        onCancel: {}, onInstall: {}, onShow: {}, onToggleApp: { _ in }, onTogglePkg: { _ in }
     )
     .frame(width: 400)
 }

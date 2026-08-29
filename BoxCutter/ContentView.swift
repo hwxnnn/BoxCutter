@@ -83,20 +83,32 @@ struct ContentView: View {
                 DMGAppInfoView(
                     info: info,
                     onCancel: { viewModel.cancelDMG() },
-                    onInstall: { viewModel.installSelectedApps() },
+                    onInstall: { viewModel.installSelected() },
                     onShow: { viewModel.showDMGInFinder() },
-                    onToggleApp: { app in viewModel.toggleAppSelection(app) }
+                    onToggleApp: { app in viewModel.toggleAppSelection(app) },
+                    onTogglePkg: { pkg in viewModel.togglePkgSelection(pkg) }
+                )
+
+            case .dmgNoApps(let info):
+                DMGNoAppsView(
+                    info: info,
+                    onClose: { viewModel.dmgNoAppsClose() },
+                    onUnmount: { viewModel.dmgNoAppsUnmount(info) },
+                    onOpen: { viewModel.dmgNoAppsOpen(info) }
                 )
 
             case .dmgInstalling(let info):
                 DMGInstallingView(
                     info: info,
-                    progress: viewModel.dmgInstallProgress
+                    progress: viewModel.dmgInstallProgress,
+                    activePkgURL: viewModel.activePkgURL,
+                    failedPkgURLs: viewModel.failedPkgURLs
                 )
 
-            case .dmgCompleted(let apps):
+            case .dmgCompleted(let apps, let packages):
                 DMGCompletionView(
                     apps: apps,
+                    packages: packages,
                     installErrors: viewModel.dmgInstallErrors,
                     quarantineFixedApps: viewModel.quarantineFixedApps,
                     onDone: { viewModel.done() },

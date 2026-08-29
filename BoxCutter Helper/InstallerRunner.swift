@@ -12,6 +12,38 @@ class InstallerRunner: NSObject, HelperProtocol {
         reply(true)
     }
 
+    func runDiagnostic(withReply reply: @escaping (Bool, String) -> Void) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/id")
+        process.arguments = ["-u"]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        process.terminationHandler = { proc in
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let uid = (String(data: data, encoding: .utf8) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard proc.terminationStatus == 0 else {
+                reply(false, "Helper could not run /usr/bin/id (exit code \(proc.terminationStatus)).")
+                return
+            }
+            guard uid == "0" else {
+                reply(false, "Helper is running as uid \(uid.isEmpty ? "unknown" : uid), expected 0 (root).")
+                return
+            }
+            reply(true, "Helper is reachable and ran /usr/bin/id as uid 0 (root).")
+        }
+
+        do {
+            try process.run()
+        } catch {
+            reply(false, "Helper could not launch a process: \(error.localizedDescription)")
+        }
+    }
+
     func installPackage(atPath path: String, target: String, withReply reply: @escaping (Bool, String) -> Void) {
         // Canonicalize path to prevent traversal attacks
         let canonicalPath = URL(fileURLWithPath: path).standardized.path

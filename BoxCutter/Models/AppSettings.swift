@@ -279,7 +279,7 @@ class AppSettings {
         autoCloseAfterInstall = false
         autoCloseDelay = 3.0
         playSoundOnComplete = true
-        completionSound = "Glass"
+        completionSound = CompletionSound.defaultName
         autoOpenSingleDMGApp = false
         autoRevealSingleDMGApp = false
         confirmBeforeInstall = true
@@ -306,7 +306,7 @@ class AppSettings {
             "autoCloseAfterInstall": false,
             "autoCloseDelay": 3.0,
             "playSoundOnComplete": true,
-            "completionSound": "Glass",
+            "completionSound": CompletionSound.defaultName,
             "autoOpenSingleDMGApp": false,
             "autoRevealSingleDMGApp": false,
             "confirmBeforeInstall": true,
@@ -328,7 +328,7 @@ class AppSettings {
         autoCloseAfterInstall = defaults.bool(forKey: "autoCloseAfterInstall")
         autoCloseDelay = defaults.double(forKey: "autoCloseDelay")
         playSoundOnComplete = defaults.bool(forKey: "playSoundOnComplete")
-        completionSound = defaults.string(forKey: "completionSound") ?? "Glass"
+        completionSound = defaults.string(forKey: "completionSound") ?? CompletionSound.defaultName
         autoOpenSingleDMGApp = defaults.bool(forKey: "autoOpenSingleDMGApp")
         autoRevealSingleDMGApp = defaults.bool(forKey: "autoRevealSingleDMGApp")
         confirmBeforeInstall = defaults.bool(forKey: "confirmBeforeInstall")

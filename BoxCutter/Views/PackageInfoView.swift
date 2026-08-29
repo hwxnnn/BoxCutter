@@ -19,14 +19,6 @@ struct PackageInfoView: View {
             header
                 .padding(16)
 
-            // EXPANDABLE: Details
-            if showDetails && info.detailsLoaded {
-                Divider()
-                    .padding(.horizontal, 16)
-
-                detailsContent
-            }
-
             // PINNED: Action bar
             Divider()
                 .padding(.horizontal, 16)
@@ -75,13 +67,11 @@ struct PackageInfoView: View {
             Button {
                 if info.detailsLoaded { showDetails.toggle() }
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     if detailsLoading {
                         ProgressView().controlSize(.mini)
                     } else {
-                        Image(systemName: "chevron.right")
-                            .rotationEffect(.degrees(showDetails ? 90 : 0))
-                            .font(.caption2)
+                        Image(systemName: "magnifyingglass").font(.caption2)
                     }
                     Text("Details").font(.caption)
                 }
@@ -89,6 +79,10 @@ struct PackageInfoView: View {
             .buttonStyle(.plain)
             .foregroundStyle(detailsLoading ? .tertiary : .secondary)
             .disabled(detailsLoading)
+            // Floats over the window like License, so the info card keeps its size.
+            .popover(isPresented: $showDetails, arrowEdge: .top) {
+                detailsContent
+            }
 
             // License button (only if license exists)
             if !info.licenseText.isEmpty {
@@ -249,6 +243,7 @@ struct PackageInfoView: View {
             .padding(.vertical, 8)
         }
         .frame(maxHeight: 360)
+        .frame(width: 380)
     }
 
     // MARK: - Helpers

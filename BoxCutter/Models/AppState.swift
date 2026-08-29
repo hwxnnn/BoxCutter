@@ -11,7 +11,8 @@ enum AppState: Equatable {
     // DMG flow
     case dmgMounting(URL)
     case dmgReady(DMGInfo)
+    case dmgNoApps(DMGVolumeInfo)
     case dmgInstalling(DMGInfo)
-    case dmgCompleted([InstalledApp])
+    case dmgCompleted([InstalledApp], [InstalledPackage])
     case dmgFailed(errorMessage: String)
 }

@@ -18,6 +18,7 @@ BoxCutter/              main SwiftUI app target
   ViewModels/           AppViewModel — central @Observable @MainActor state machine
   Views/                DropZone, PackageInfo, Installing, Completion, DMG*, Settings
   Assets.xcassets/      app icon, accent color
+  Resources/            CompletionSuccess.caf / CompletionFailure.caf (bundled chimes)
 BoxCutter Helper/       privileged launchd daemon target
   main.swift            creates HelperDelegate, runs RunLoop
   HelperDelegate.swift  XPC listener + client code-signing validation (security-critical)
@@ -63,7 +64,8 @@ No test target, no lint config, no formatter config. Use compile success as the 
 - Do not capture non-`Sendable` objects (e.g. `FileManager`) into `@Sendable` closures (process termination/readability handlers).
 - File naming: PascalCase Swift filenames matching primary type.
 - Shared protocol changes must compile in both app and helper targets.
-- Debug signing: `Apple Development`, automatic. Release: `Developer ID Application`, manual, team `867PL24QLQ`.
+- Debug signing: `Apple Development`, automatic. Release: `Developer ID Application`, manual.
+- `DEVELOPMENT_TEAM` is intentionally empty in `project.pbxproj`. Set your own team in Xcode, or pass `DEVELOPMENT_TEAM=<id>` to `xcodebuild`. Do not commit a team id back.
 
 ## Entry points
 
@@ -72,31 +74,42 @@ No test target, no lint config, no formatter config. Use compile success as the 
 - Behavior changes (PKG + DMG flows): `BoxCutter/ViewModels/AppViewModel.swift`
 - State enum: `BoxCutter/Models/AppState.swift`
 - Settings + presets: `BoxCutter/Models/AppSettings.swift` (`AppSettings.shared`, `UserDefaults`-backed)
+- Completion chimes: `BoxCutter/Services/CompletionSound.swift`. `AppSettings.completionSound` stores either `CompletionSound.defaultName` ("Default", the bundled pair) or a macOS system sound name. Bundled is the registered default. System-sound selections still pair with Basso on failure — the picker only ever had one slot. Never call `NSSound` for completion directly; route through this type.
 - PKG install fallback (AppleScript admin): `BoxCutter/Services/DirectInstaller.swift`
 - Privileged XPC client: `BoxCutter/Services/XPCClient.swift`
 - Helper registration/status: `BoxCutter/Services/HelperManager.swift` (`SMAppService.daemon`)
-- DMG mount/copy/quarantine: `BoxCutter/Services/DMGService.swift`
+- DMG mount/scan/copy/quarantine: `BoxCutter/Services/DMGService.swift` (`findApps`, `findPackages`)
 - Helper XPC listener + client validation: `BoxCutter Helper/HelperDelegate.swift`
 - Root installer runner: `BoxCutter Helper/InstallerRunner.swift`
 - Mach service name: `Shared/SharedConstants.swift`
 
 State machine summary:
 - PKG: `idle → inspecting(URL) → packageReady(PackageInfo) → installing → completed | failed`
-- DMG: `dmgMounting(URL) → dmgReady(DMGInfo) → dmgInstalling → dmgCompleted([InstalledApp]) | dmgFailed`
+- DMG: `dmgMounting(URL) → dmgReady(DMGInfo) → dmgInstalling → dmgCompleted([InstalledApp], [InstalledPackage]) | dmgFailed`
+- DMG with no `.app`: `dmgMounting(URL) → dmgNoApps(DMGVolumeInfo)`. Terminal state; all three actions (`dmgNoAppsClose` / `dmgNoAppsUnmount` / `dmgNoAppsOpen`) clear `currentMountPoint` before `done()`.
+- DMG holding exactly one `.pkg` and no apps: `dmgMounting(URL) → packageReady(PackageInfo)` — hands off to the PKG flow with the image still mounted. `pkgSourceDMG` marks the handoff.
 - `handleFile(url:)` rejects new input unless state is `.idle`. Preserve this invariant unless adding explicit cancellation.
 
 ## Gotchas
 
 - Helper Mach service: `com.hwxnnn.BoxCutter-Helper`. Helper executable is `BoxCutterHelper` (no space — renamed from `"BoxCutter Helper"`); display target dir is still `BoxCutter Helper/`.
-- Helper validation in Release requires bundle id `com.hwxnnn.BoxCutter` + Apple generic anchor + matching team ID. Bundle-id-only validation is `#if DEBUG` only — never loosen Release.
+- Helper validation in Release requires the app bundle id + Apple generic anchor + matching team ID. Bundle-id-only validation is `#if DEBUG` only — never loosen Release.
 - Root/helper cannot reliably read `~/Downloads` or `~/Desktop` due to TCC. PKG installs intentionally copy to `/tmp/BoxCutter-<UUID>-<name>.pkg` first.
-- Do not add an overall timeout around the helper install operation. Large packages legitimately exceed 30s; timing out causes duplicate installs. `ping` is only a readiness probe and may fail against older resident helpers — fall through to `installPackage` regardless.
+- Do not add an overall timeout around the helper install operation. Large packages legitimately exceed 30s; timing out causes duplicate installs. The readiness probe distinguishes two failures: a quick XPC error (`.errored`, possibly an old resident helper without `ping`) still falls through to `installPackage`, but a silent 30s timeout (`.unreachable`) returns instead of calling it. An install that never started cannot be duplicated, and calling `installPackage` against a daemon launchd cannot spawn hangs the UI forever with no output.
+- The helper is a resident daemon that never exits on its own. Once running it serves everything, which masks registration problems — a stale registration only bites when the helper is cold. `SMAppService.status` reports `.enabled` ("Installed & Running", green) even when the daemon cannot actually be reached, so status is not proof of health. Settings > Permissions > Helper Daemon > **Test** calls `runDiagnostic`, which runs `/usr/bin/id -u` as root and is the only real check.
+- Replacing `/Applications/BoxCutter.app` can leave the registered daemon stale. Uninstall + Install Helper in Settings re-registers it without needing fresh System Settings approval.
+- `XPCClient.onStatus` feeds handshake commentary into `outputLines`. Without it the helper path shows an empty log at 0% for the whole probe window.
 - DMG copy uses `ditto -V` into a hidden staging bundle under `/Applications`, then atomic swap. Pre-existing apps are moved aside to `.BoxCutter-backup-...` before replacement.
 - Startup cleanup removes orphaned staging bundles only. **Do not** delete `.BoxCutter-backup-*` — those are user recovery artifacts.
 - `isCodeSignatureValid` uses default `SecStaticCodeCheckValidity` flags (not strict/deep) to avoid false negatives on legitimate signed apps.
-- `unmount` is fire-and-forget by design (avoids blocking caller threads).
+- `unmount` is fire-and-forget by design (avoids blocking caller threads). The cost is that images can stay attached: a re-attach then fails with `hdiutil: attach failed - Resource busy`. `mount` recovers by looking the image up via `hdiutil info -plist` (`attachedMountPoint`) and reusing the existing mount, with one 600ms retry.
+- `DMGService.runProcess` keeps stdout and stderr **separate**. hdiutil writes its `-plist` to stdout and a `-nobrowse` deprecation warning to stderr on macOS 26+; merging them let that warning become the entire user-facing error while the real reason was truncated away. `sanitized(_:)` strips `hdiutil: WARNING:` lines from anything shown to the user. Both pipes are drained concurrently — reading one to completion first deadlocks once the other fills its 64K buffer.
+- `DMGService.mount` defaults to `-nobrowse`. A DMG with no apps is detached and re-attached via `remountBrowsable` so the volume is visible in Finder like a normal double-click mount. `findApps` returns `[]` rather than throwing — empty is a valid outcome, not an error.
+- `DMGService.scan` walks the volume root plus one level of subfolders for both `findApps` and `findPackages`. It must never descend into symlinks or bundles: every DMG ships an `Applications` alias, and following it would enumerate the user's entire `/Applications` as DMG content. `isTraversableDirectory` enforces this via `.isSymbolicLinkKey` + `.isPackageKey` — verified against a real image.
+- A `.pkg` installed off a mounted image must not be trashed: it lives on a read-only volume. `disposeOfInstalledSource` unmounts and applies `trashDMGAfterInstall` to the `.dmg` the user dropped instead of `trashAfterInstall` to the package.
+- DMG packages install sequentially, not in parallel — each is a privileged `installer` run. Under the AppleScript fallback that means one password prompt per package; the helper daemon path prompts none.
 - Helper packaging: main app's Copy Files build phase embeds the helper binary + plist into `Contents/Library/LaunchDaemons`. First-run requires user approval in System Settings → Login Items & Extensions.
-- Signed Release builds need the Developer ID private key for team `867PL24QLQ`; otherwise use `CODE_SIGNING_ALLOWED=NO`.
+- Signed Release builds need a Developer ID Application private key in the keychain; otherwise use `CODE_SIGNING_ALLOWED=NO`.
 - `DirectInstaller` builds privileged shell commands via AppleScript `quoted form of`. Do not regress to manual string escaping — backticks, `$()`, quotes, spaces, backslashes must not become injection under admin privileges.
 - UI is fixed-width (`ContentView` width 400, fixed window). Do not redesign into a landing page.
 - `BoxCutter Helper` target's `MACOSX_DEPLOYMENT_TARGET = 26.2` looks anomalous vs main app's `15.0`. TODO(agent): verify whether intentional.
@@ -108,7 +121,7 @@ State machine summary:
 - Don't accept arbitrary client-supplied paths or commands across XPC.
 - Don't delete `.BoxCutter-backup-*` directories anywhere in code.
 - Don't add timeouts wrapping the privileged install call.
-- Don't change `HelperProtocol` without updating both targets and considering old-resident-helper compatibility.
+- Don't change `HelperProtocol` without updating both targets and considering old-resident-helper compatibility. Adding a method is safe-ish: an old resident helper fails the call with an XPC error, which the client surfaces as "reinstall the helper" (verified with `runDiagnostic`).
 - Don't claim sandboxed; project entitlements aren't set for it.
 - Don't introduce third-party dependencies or package managers without explicit instruction.
 - Don't force-push or rewrite shared history on `main`.
