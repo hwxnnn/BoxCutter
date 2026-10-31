@@ -79,6 +79,14 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
 
+            case .dmgThinningChoice(let info):
+                DMGThinningChoiceView(
+                    info: info,
+                    onCancel: { viewModel.cancelDMG() },
+                    onNo: { viewModel.chooseDMGThinning(false) },
+                    onYes: { viewModel.chooseDMGThinning(true) }
+                )
+
             case .dmgReady(let info):
                 DMGAppInfoView(
                     info: info,
@@ -128,6 +136,12 @@ struct ContentView: View {
             }
         }
         .frame(width: 400)
+        .sheet(isPresented: $viewModel.showUniversalStripPrompt) {
+            UniversalThinningPrompt(
+                message: viewModel.universalStripPromptMessage,
+                onChoose: viewModel.chooseUniversalAppStripping
+            )
+        }
         .onAppear {
             settings.applyWindowLevel()
             showFirstLaunchPromptIfNeeded()

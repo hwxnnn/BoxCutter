@@ -5,6 +5,22 @@ import SwiftUI
 class AppSettings {
     static let shared = AppSettings()
 
+    private let defaults: UserDefaults
+
+    enum UniversalAppThinningMode: String, CaseIterable, Identifiable {
+        case ask, always, never
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .ask: return "Ask"
+            case .always: return "Always"
+            case .never: return "Never"
+            }
+        }
+    }
+
     enum PrivilegeMethod: String, CaseIterable, Identifiable {
         case helper
         case appleScript
@@ -49,7 +65,7 @@ class AppSettings {
     /// Keep the window always on top
     var alwaysOnTop: Bool {
         didSet {
-            UserDefaults.standard.set(alwaysOnTop, forKey: "alwaysOnTop")
+            defaults.set(alwaysOnTop, forKey: "alwaysOnTop")
             applyWindowLevel()
         }
     }
@@ -64,45 +80,45 @@ class AppSettings {
 
     /// Quit after an automatically opened installed app successfully launches
     var autoCloseAfterInstall: Bool {
-        didSet { UserDefaults.standard.set(autoCloseAfterInstall, forKey: "autoCloseAfterInstall") }
+        didSet { defaults.set(autoCloseAfterInstall, forKey: "autoCloseAfterInstall") }
     }
 
     /// Play a sound when installation completes
     var playSoundOnComplete: Bool {
-        didSet { UserDefaults.standard.set(playSoundOnComplete, forKey: "playSoundOnComplete") }
+        didSet { defaults.set(playSoundOnComplete, forKey: "playSoundOnComplete") }
     }
 
     /// Notification sound name
     var completionSound: String {
-        didSet { UserDefaults.standard.set(completionSound, forKey: "completionSound") }
+        didSet { defaults.set(completionSound, forKey: "completionSound") }
     }
 
     /// Automatically open installed app after a single-app DMG install
     var autoOpenSingleDMGApp: Bool {
-        didSet { UserDefaults.standard.set(autoOpenSingleDMGApp, forKey: "autoOpenSingleDMGApp") }
+        didSet { defaults.set(autoOpenSingleDMGApp, forKey: "autoOpenSingleDMGApp") }
     }
 
     /// Automatically reveal installed app in Finder after a single-app DMG install
     var autoRevealSingleDMGApp: Bool {
-        didSet { UserDefaults.standard.set(autoRevealSingleDMGApp, forKey: "autoRevealSingleDMGApp") }
+        didSet { defaults.set(autoRevealSingleDMGApp, forKey: "autoRevealSingleDMGApp") }
     }
 
     // MARK: - Behavior: PKG
 
     /// Ask for confirmation before starting .pkg installation
     var confirmBeforeInstall: Bool {
-        didSet { UserDefaults.standard.set(confirmBeforeInstall, forKey: "confirmBeforeInstall") }
+        didSet { defaults.set(confirmBeforeInstall, forKey: "confirmBeforeInstall") }
     }
 
     /// Trash the original .pkg file after a successful installation
     var trashAfterInstall: Bool {
-        didSet { UserDefaults.standard.set(trashAfterInstall, forKey: "trashAfterInstall") }
+        didSet { defaults.set(trashAfterInstall, forKey: "trashAfterInstall") }
     }
 
     /// Remember selected package install location between installs
     var rememberInstallTarget: Bool {
         didSet {
-            UserDefaults.standard.set(rememberInstallTarget, forKey: "rememberInstallTarget")
+            defaults.set(rememberInstallTarget, forKey: "rememberInstallTarget")
             if !rememberInstallTarget {
                 lastInstallTarget = "/"
             }
@@ -117,40 +133,53 @@ class AppSettings {
                 lastInstallTarget = sanitized
                 return
             }
-            UserDefaults.standard.set(sanitized, forKey: "lastInstallTarget")
+            defaults.set(sanitized, forKey: "lastInstallTarget")
         }
     }
 
     /// Show verbose installer output during installation
     var showVerboseOutput: Bool {
-        didSet { UserDefaults.standard.set(showVerboseOutput, forKey: "showVerboseOutput") }
+        didSet { defaults.set(showVerboseOutput, forKey: "showVerboseOutput") }
     }
 
     /// Show the progress bar during installation
     var showProgressBar: Bool {
-        didSet { UserDefaults.standard.set(showProgressBar, forKey: "showProgressBar") }
+        didSet { defaults.set(showProgressBar, forKey: "showProgressBar") }
     }
 
     /// Show script warnings on the package info screen
     var showScriptWarnings: Bool {
-        didSet { UserDefaults.standard.set(showScriptWarnings, forKey: "showScriptWarnings") }
+        didSet { defaults.set(showScriptWarnings, forKey: "showScriptWarnings") }
     }
 
     /// Show the payload file list on the package info screen
     var showPayloadFiles: Bool {
-        didSet { UserDefaults.standard.set(showPayloadFiles, forKey: "showPayloadFiles") }
+        didSet { defaults.set(showPayloadFiles, forKey: "showPayloadFiles") }
     }
 
     // MARK: - Behavior: DMG
 
     /// Ask for confirmation before installing a .dmg app
     var confirmBeforeDMGInstall: Bool {
-        didSet { UserDefaults.standard.set(confirmBeforeDMGInstall, forKey: "confirmBeforeDMGInstall") }
+        didSet { defaults.set(confirmBeforeDMGInstall, forKey: "confirmBeforeDMGInstall") }
     }
 
     /// Trash the original .dmg file after a successful installation
     var trashDMGAfterInstall: Bool {
-        didSet { UserDefaults.standard.set(trashDMGAfterInstall, forKey: "trashDMGAfterInstall") }
+        didSet { defaults.set(trashDMGAfterInstall, forKey: "trashDMGAfterInstall") }
+    }
+
+    /// Ask at installation time, always thin automatically, or retain every architecture.
+    var universalAppThinningMode: UniversalAppThinningMode {
+        didSet {
+            defaults.set(universalAppThinningMode.rawValue, forKey: "universalAppThinningMode")
+            hasChosenUniversalAppStripping = true
+        }
+    }
+
+    /// First-run alert is shown once, unless the preference was already chosen in Settings.
+    var hasChosenUniversalAppStripping: Bool {
+        didSet { defaults.set(hasChosenUniversalAppStripping, forKey: "hasChosenUniversalAppStripping") }
     }
 
     // MARK: - Permissions
@@ -166,7 +195,7 @@ class AppSettings {
     }
 
     private var privilegeMethodRaw: String {
-        didSet { UserDefaults.standard.set(privilegeMethodRaw, forKey: "privilegeMethod") }
+        didSet { defaults.set(privilegeMethodRaw, forKey: "privilegeMethod") }
     }
 
     /// Convenience: true when the user prefers the helper daemon
@@ -174,7 +203,7 @@ class AppSettings {
 
     /// Whether the first-launch privilege prompt has been shown
     var hasShownFirstLaunchPrompt: Bool {
-        didSet { UserDefaults.standard.set(hasShownFirstLaunchPrompt, forKey: "hasShownFirstLaunchPrompt") }
+        didSet { defaults.set(hasShownFirstLaunchPrompt, forKey: "hasShownFirstLaunchPrompt") }
     }
 
     // MARK: - Presets
@@ -232,14 +261,16 @@ class AppSettings {
         showPayloadFiles = true
         confirmBeforeDMGInstall = true
         trashDMGAfterInstall = false
+        universalAppThinningMode = .ask
+        hasChosenUniversalAppStripping = false
         privilegeMethodRaw = PrivilegeMethod.appleScript.rawValue
         hasShownFirstLaunchPrompt = false
     }
 
     // MARK: - Init
 
-    private init() {
-        let defaults = UserDefaults.standard
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
 
         let defaultValues: [String: Any] = [
             "alwaysOnTop": false,
@@ -258,6 +289,7 @@ class AppSettings {
             "showPayloadFiles": true,
             "confirmBeforeDMGInstall": true,
             "trashDMGAfterInstall": false,
+            "hasChosenUniversalAppStripping": false,
             "privilegeMethod": PrivilegeMethod.appleScript.rawValue,
             "hasShownFirstLaunchPrompt": false
         ]
@@ -279,6 +311,11 @@ class AppSettings {
         showPayloadFiles = defaults.bool(forKey: "showPayloadFiles")
         confirmBeforeDMGInstall = defaults.bool(forKey: "confirmBeforeDMGInstall")
         trashDMGAfterInstall = defaults.bool(forKey: "trashDMGAfterInstall")
+        // Preserve the old toggle's intent without treating Off as the new Never.
+        universalAppThinningMode = defaults.string(forKey: "universalAppThinningMode")
+            .flatMap(UniversalAppThinningMode.init(rawValue:))
+            ?? (defaults.bool(forKey: "stripUniversalApps") ? .always : .ask)
+        hasChosenUniversalAppStripping = defaults.bool(forKey: "hasChosenUniversalAppStripping")
         privilegeMethodRaw = defaults.string(forKey: "privilegeMethod") ?? PrivilegeMethod.appleScript.rawValue
         hasShownFirstLaunchPrompt = defaults.bool(forKey: "hasShownFirstLaunchPrompt")
     }

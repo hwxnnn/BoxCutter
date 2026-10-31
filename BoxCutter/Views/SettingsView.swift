@@ -35,8 +35,8 @@ struct SettingsView: View {
             output
                 .tabItem { Label("Output", systemImage: "text.justify.left") }
 
-            permissions
-                .tabItem { Label("Permissions", systemImage: "lock.shield") }
+            helper
+                .tabItem { Label("Helper", systemImage: "lock.shield") }
 
             advanced
                 .tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
@@ -141,6 +141,12 @@ struct SettingsView: View {
             }
 
             Section("Disk Images (.dmg)") {
+                Picker("Thin Universal apps", selection: $settings.universalAppThinningMode) {
+                    ForEach(AppSettings.UniversalAppThinningMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+
                 Toggle(
                     "Ask for confirmation",
                     isOn: $settings.confirmBeforeDMGInstall
@@ -196,7 +202,7 @@ struct SettingsView: View {
         }
     }
 
-    private var permissions: some View {
+    private var helper: some View {
         settingsForm {
             Section {
                 Picker("Method", selection: Binding(
@@ -209,10 +215,6 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Privilege Escalation")
-            } footer: {
-                Text(settings.privilegeMethod.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             if settings.prefersHelper {

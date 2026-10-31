@@ -235,6 +235,7 @@ enum DMGService {
                             ?? installedDict["CFBundleVersion"] as? String
         }
 
+        let architecture = thinningArchitecture(at: url)
         return DMGAppEntry(
             appURL: url,
             appName: name,
@@ -244,8 +245,17 @@ enum DMGService {
             fileCount: fileCount(at: url),
             isCodeSigned: isSigned,
             installedVersion: installedVersion,
-            subfolder: subfolder(of: url, mountPoint: mountPoint)
+            subfolder: subfolder(of: url, mountPoint: mountPoint),
+            thinningArchitecture: architecture,
+            estimatedBytesSaved: architecture.map { UniversalBinary.estimatedSavings(in: url, keeping: $0) } ?? 0
         )
+    }
+
+    nonisolated private static func thinningArchitecture(at url: URL) -> BinaryArchitecture? {
+        let architectures = Set(Bundle(url: url)?.executableArchitectures?.map(\.intValue) ?? [])
+        guard architectures.contains(NSBundleExecutableArchitectureARM64),
+              architectures.contains(NSBundleExecutableArchitectureX86_64) else { return nil }
+        return .native
     }
 
     // MARK: - Copy App to /Applications
@@ -254,10 +264,18 @@ enum DMGService {
     /// based on file count. Returns the installed URL on success.
     nonisolated static func copyApp(
         from source: DMGAppEntry,
+        stripUnusedArchitecture: Bool = false,
+        applicationsDirectory: URL = URL(fileURLWithPath: "/Applications"),
         onProgress: @escaping @Sendable (Double) -> Void
     ) async throws -> URL {
-        let destination = URL(fileURLWithPath: "/Applications/\(source.appName).app")
-        let temporaryDestination = URL(fileURLWithPath: "/Applications/.BoxCutter-\(UUID().uuidString)-\(source.appName).app")
+        let architecture = stripUnusedArchitecture ? source.thinningArchitecture : nil
+        if stripUnusedArchitecture && architecture != BinaryArchitecture.native {
+            throw DMGError.copyFailed("This app cannot be reduced to this Mac's architecture.")
+        }
+        let destination = applicationsDirectory.appendingPathComponent("\(source.appName).app")
+        let temporaryDestination = applicationsDirectory.appendingPathComponent(
+            ".BoxCutter-\(UUID().uuidString)-\(source.appName).app"
+        )
         let fm = FileManager.default
 
         try? fm.removeItem(at: temporaryDestination)
@@ -268,7 +286,13 @@ enum DMGService {
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-            process.arguments = ["-V", source.appURL.path, temporaryDestination.path]
+            // ditto preserves each remaining slice's signature and all bundle metadata.
+            // Thin only the staging copy; never rewrite or re-sign the source app.
+            var arguments = ["-V"]
+            if let architecture {
+                arguments += ["--arch", architecture.rawValue]
+            }
+            process.arguments = arguments + [source.appURL.path, temporaryDestination.path]
 
             let pipe = Pipe()
             process.standardOutput = pipe
@@ -290,6 +314,10 @@ enum DMGService {
                 pipe.fileHandleForReading.readabilityHandler = nil
                 if proc.terminationStatus == 0 {
                     do {
+                        if let architecture {
+                            try validateThinnedCopy(at: temporaryDestination, architecture: architecture,
+                                                    wasSigned: source.isCodeSigned)
+                        }
                         let installedURL = try finalizeAppCopy(
                             from: temporaryDestination,
                             to: destination
@@ -317,6 +345,20 @@ enum DMGService {
                 removeAppCopy(at: temporaryDestination)
                 continuation.resume(throwing: DMGError.copyFailed(error.localizedDescription))
             }
+        }
+    }
+
+    nonisolated private static func validateThinnedCopy(
+        at url: URL, architecture: BinaryArchitecture, wasSigned: Bool
+    ) throws {
+        let expected = architecture == .arm64
+            ? NSBundleExecutableArchitectureARM64 : NSBundleExecutableArchitectureX86_64
+        let architectures = Set(Bundle(url: url)?.executableArchitectures?.map(\.intValue) ?? [])
+        guard architectures == [expected] else {
+            throw DMGError.copyFailed("Could not keep only the code needed by this Mac. Try installing without removing unused code.")
+        }
+        if wasSigned && !isCodeSignatureValid(at: url) {
+            throw DMGError.copyFailed("The reduced app's signature could not be verified. Try installing without removing unused code.")
         }
     }
 
@@ -394,8 +436,8 @@ enum DMGService {
 
     nonisolated private static func finalizeAppCopy(from temporaryURL: URL, to destinationURL: URL) throws -> URL {
         let fm = FileManager.default
-        let backupURL = URL(
-            fileURLWithPath: "/Applications/.BoxCutter-backup-\(UUID().uuidString)-\(destinationURL.lastPathComponent)"
+        let backupURL = destinationURL.deletingLastPathComponent().appendingPathComponent(
+            ".BoxCutter-backup-\(UUID().uuidString)-\(destinationURL.lastPathComponent)"
         )
 
         if fm.fileExists(atPath: destinationURL.path) {

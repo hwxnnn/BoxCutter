@@ -41,6 +41,9 @@ View metadata, payload files, and pre/post-install script warnings before commit
 **Parallel DMG app installs**
 When a disk image contains multiple apps, BoxCutter installs them all concurrently.
 
+**Thin Universal apps**
+Remove unused Intel or Apple silicon code while installing from a disk image. The first universal app offers a one-time choice with the estimated saving. Later questions appear after clicking Install or Update. Set Thin Universal apps to Ask, Always, or Never in Installation settings.
+
 **Privileged Helper**
 A dedicated launchd daemon handles elevated-privilege package installs via XPC, keeping root operations out of the main app process.
 

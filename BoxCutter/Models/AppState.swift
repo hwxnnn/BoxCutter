@@ -10,6 +10,7 @@ enum AppState: Equatable {
 
     // DMG flow
     case dmgMounting(URL)
+    case dmgThinningChoice(DMGInfo)
     case dmgReady(DMGInfo)
     case dmgNoApps(DMGVolumeInfo)
     case dmgInstalling(DMGInfo)

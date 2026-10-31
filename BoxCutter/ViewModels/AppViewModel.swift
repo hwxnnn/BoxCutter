@@ -27,6 +27,12 @@ class AppViewModel {
     var dmgInstallProgress: [URL: Double] = [:]
     var dmgInstallErrors: [String] = []
     var quarantineFixedApps: Set<URL> = []
+    var showUniversalStripPrompt = false
+
+    var universalStripPromptMessage: String {
+        guard case .dmgReady(let info) = state else { return "" }
+        return info.universalStripPromptMessage
+    }
     /// When true, "Done" should quit the app instead of returning to idle.
     var shouldQuitOnDone: Bool = false
 
@@ -45,12 +51,15 @@ class AppViewModel {
     private(set) var failedPkgURLs: Set<URL> = []
 
     let helperManager = HelperManager.shared
-    private let settings = AppSettings.shared
+    private let settings: AppSettings
+    private let applicationsDirectory: URL
 
     private let xpcClient = XPCClient()
     private let directInstaller = DirectInstaller()
 
-    init() {
+    init(settings: AppSettings? = nil, applicationsDirectory: URL = URL(fileURLWithPath: "/Applications")) {
+        self.settings = settings ?? .shared
+        self.applicationsDirectory = applicationsDirectory
         let outputHandler: (String) -> Void = { [weak self] line in
             Task { @MainActor in
                 self?.handleOutputLine(line)
@@ -65,8 +74,8 @@ class AppViewModel {
                 self?.outputLines.append("[BoxCutter] \(message)")
             }
         }
-        if settings.rememberInstallTarget {
-            installTarget = settings.lastInstallTarget
+        if self.settings.rememberInstallTarget {
+            installTarget = self.settings.lastInstallTarget
         }
     }
 
@@ -273,7 +282,6 @@ class AppViewModel {
                 }
                 await MainActor.run {
                     self.currentMountPoint = mp
-                    let onlyApp = apps.count == 1 && pkgs.isEmpty
                     // Mixed images never reach here, so apps and pkgs are mutually
                     // exclusive. Apps are pre-selected because copying them is cheap and
                     // reversible; packages are not, so they stay opt-in.
@@ -286,11 +294,7 @@ class AppViewModel {
                         selectedAppIDs: Set(apps.map(\.appURL)),
                         selectedPkgIDs: Set()
                     )
-                    // M-8: Hoist the state assignment — both branches set the same value.
-                    self.state = .dmgReady(info)
-                    if !self.settings.confirmBeforeDMGInstall && onlyApp {
-                        self.installSelected()
-                    }
+                    self.prepareDMGInstall(info)
                 }
             } catch {
                 if let mp = mountPoint {
@@ -301,6 +305,19 @@ class AppViewModel {
                     self.state = .dmgFailed(errorMessage: error.localizedDescription)
                 }
             }
+        }
+    }
+
+    func prepareDMGInstall(_ info: DMGInfo) {
+        state = .dmgReady(info)
+        showUniversalStripPrompt = false
+        if !info.selectedUniversalApps.isEmpty,
+           !settings.hasChosenUniversalAppStripping, settings.universalAppThinningMode == .ask {
+            showUniversalStripPrompt = true
+        } else if !settings.confirmBeforeDMGInstall && info.apps.count == 1 && info.pkgs.isEmpty {
+            // Ask mode still starts from the preview: its question follows Install/Update.
+            guard settings.universalAppThinningMode != .ask || info.selectedUniversalApps.isEmpty else { return }
+            installSelected()
         }
     }
 
@@ -324,11 +341,53 @@ class AppViewModel {
         state = .dmgReady(info)
     }
 
+    func chooseDMGThinning(_ shouldThin: Bool) {
+        guard case .dmgThinningChoice(var info) = state,
+              let app = info.appsAwaitingThinningDecision.first else { return }
+        info.appIDsWithThinningDecision.insert(app.appURL)
+        if shouldThin {
+            info.appIDsToThin.insert(app.appURL)
+        } else {
+            info.appIDsToThin.remove(app.appURL)
+        }
+        if info.appsAwaitingThinningDecision.isEmpty {
+            state = .dmgReady(info)
+            installSelected()
+        } else {
+            state = .dmgThinningChoice(info)
+        }
+    }
+
+    func chooseUniversalAppStripping(_ choice: UniversalStripChoice) {
+        guard case .dmgReady(var info) = state, !info.selectedUniversalApps.isEmpty else { return }
+        showUniversalStripPrompt = false
+        settings.hasChosenUniversalAppStripping = true
+        info.applyUniversalStripChoice(choice)
+        if case .always = choice { settings.universalAppThinningMode = .always }
+        state = .dmgReady(info)
+    }
+
     func installSelected() {
-        guard case .dmgReady(let info) = state else { return }
+        guard case .dmgReady(var info) = state, !showUniversalStripPrompt else { return }
+        switch settings.universalAppThinningMode {
+        case .ask:
+            if !info.appsAwaitingThinningDecision.isEmpty {
+                if settings.hasChosenUniversalAppStripping {
+                    state = .dmgThinningChoice(info)
+                } else {
+                    showUniversalStripPrompt = true
+                }
+                return
+            }
+        case .always:
+            info.applyAutomaticThinningPreference()
+        case .never:
+            info.applyUniversalStripChoice(.no)
+        }
         let selectedApps = info.selectedApps
         let selectedPkgs = info.selectedPkgs
         guard !selectedApps.isEmpty || !selectedPkgs.isEmpty else { return }
+        let destinationDirectory = applicationsDirectory
 
         state = .dmgInstalling(info)
         dmgInstallProgress = Dictionary(
@@ -350,7 +409,10 @@ class AppViewModel {
                 for app in selectedApps {
                     group.addTask {
                         do {
-                            let dest = try await DMGService.copyApp(from: app) { pct in
+                            let dest = try await DMGService.copyApp(
+                                from: app, stripUnusedArchitecture: info.appIDsToThin.contains(app.appURL),
+                                applicationsDirectory: destinationDirectory
+                            ) { pct in
                                 Task { @MainActor in
                                     self.dmgInstallProgress[app.appURL] = pct
                                 }
@@ -402,8 +464,10 @@ class AppViewModel {
             }
             activePkgURL = nil
 
-            DMGService.unmount(mountPoint: info.mountPoint)
-            currentMountPoint = nil
+            if let mountPoint = currentMountPoint {
+                DMGService.unmount(mountPoint: mountPoint)
+                currentMountPoint = nil
+            }
 
             let anySucceeded = !installed.isEmpty || !installedPackages.isEmpty
 
@@ -531,6 +595,7 @@ class AppViewModel {
     }
 
     func reset() {
+        showUniversalStripPrompt = false
         automaticLaunchID = nil
         if let mp = currentMountPoint {
             currentMountPoint = nil

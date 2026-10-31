@@ -30,6 +30,7 @@ Shared/                 compiled into both targets
   ProgressProtocol.swift helper→app output streaming protocol
 BoxCutter.xcodeproj/    Xcode project; preserve shared schemes
 assets/                 README screenshots/icon (not shipped in app)
+Tests/                  standalone real-DMG copy, savings-parser, and preference/state checks (no Xcode target)
 ```
 
 ## Commands
@@ -53,15 +54,27 @@ Developer ID archive (universal; team supplied locally):
 ```sh
 xcodebuild -project BoxCutter.xcodeproj -scheme BoxCutter -configuration Release -destination 'generic/platform=macOS' -archivePath /absolute/path/BoxCutter.xcarchive DEVELOPMENT_TEAM=<id> archive
 ```
-Export with `xcodebuild -exportArchive` using `method=developer-id`, `signingStyle=manual`, `signingCertificate=Developer ID Application`, and the local `teamID` in an export options plist. ZIP with `ditto -c -k --sequesterRsrc --keepParent`, submit via `xcrun notarytool submit --keychain-profile <profile> --wait`, staple + validate the exported app, then recreate the release ZIP. Keep archives, export options, credentials, and release assets outside the repo.
-Xcode alternative: Organizer → Archives → Distribute App → Direct Distribution notarizes using the signed-in Xcode account without a notarytool profile; export after acceptance, then verify the stapled app.
+Export with `xcodebuild -exportArchive` using `method=developer-id`, `signingStyle=manual`, `signingCertificate=Developer ID Application`, and the local `teamID` in an export options plist. Xcode alternative: Organizer → Archives → Distribute App → Direct Distribution notarizes using the signed-in Xcode account without a notarytool profile. Staple + validate the exported app.
+Release asset is `BoxCutter.dmg` (no version in filename). Use volume name `BoxCutter <version>`; include `BoxCutter.app`, an `/Applications` symlink, and `assets/dmg-banner.png` under `.background/`. The banner is 1600×1000: keep its 1.6:1 ratio (800×500 for an 800×500 Finder window). Set background + icon positions in `.DS_Store`, convert to UDZO, then validate the mounted app with `stapler`, `codesign`, and `spctl` before upload. Keep archives, export options, credentials, and release assets outside the repo.
 
 Diff sanity:
 ```sh
 git diff --check
 ```
 
-No test target, no lint config, no formatter config. Use compile success as the verification baseline.
+DMG architecture thinning integration test (uses the supplied Impactor image; installs only into a temporary directory):
+```sh
+xcrun swiftc -parse-as-library -swift-version 5 BoxCutter/Models/DMGInfo.swift BoxCutter/Services/DMGService.swift BoxCutter/Services/UniversalBinary.swift Tests/DMGThinningTests.swift -o /tmp/BoxCutter-DMGThinningTests
+/tmp/BoxCutter-DMGThinningTests "$HOME/Downloads/Impactor-macos-universal.dmg"
+```
+
+First-use alert, persistence, install timing, and binary-header checks (isolated defaults and temporary install destinations):
+```sh
+xcrun swiftc -parse-as-library -swift-version 5 -default-isolation MainActor BoxCutter/Models/*.swift BoxCutter/Services/*.swift BoxCutter/ViewModels/AppViewModel.swift Shared/*.swift Tests/UniversalStrippingPreferenceTests.swift -o /tmp/BoxCutter-UniversalStrippingPreferenceTests
+/tmp/BoxCutter-UniversalStrippingPreferenceTests "$HOME/Downloads/Impactor-macos-universal.dmg"
+```
+
+No Xcode test target, no lint config, no formatter config. Compile success is the baseline; run the standalone integration test for thinning changes.
 
 ## Conventions
 
@@ -93,6 +106,7 @@ No test target, no lint config, no formatter config. Use compile success as the 
 State machine summary:
 - PKG: `idle → inspecting(URL) → packageReady(PackageInfo) → installing → completed | failed`
 - DMG: `dmgMounting(URL) → dmgReady(DMGInfo) → dmgInstalling → dmgCompleted([InstalledApp], [InstalledPackage]) | dmgFailed`
+- Universal DMGs in Ask mode: after the one-time alert has been answered, `dmgMounting → dmgReady → Install/Update → dmgThinningChoice(DMGInfo) → dmgInstalling`. The main-window question advances per app; Yes/No continue the approved install after the last answer, and Cancel resets to idle. Ask retains the preview's Install/Update button even when regular DMG confirmation is disabled.
 - DMG with no `.app`: `dmgMounting(URL) → dmgNoApps(DMGVolumeInfo)`. Terminal state; all three actions (`dmgNoAppsClose` / `dmgNoAppsUnmount` / `dmgNoAppsOpen`) clear `currentMountPoint` before `done()`.
 - DMG holding exactly one `.pkg` and no apps: `dmgMounting(URL) → packageReady(PackageInfo)` — hands off to the PKG flow with the image still mounted. `pkgSourceDMG` marks the handoff.
 - `handleFile(url:)` rejects new input unless state is `.idle`. Preserve this invariant unless adding explicit cancellation.
@@ -103,10 +117,14 @@ State machine summary:
 - Helper validation in Release requires the app bundle id + Apple generic anchor + matching team ID. Bundle-id-only validation is `#if DEBUG` only — never loosen Release.
 - Root/helper cannot reliably read `~/Downloads` or `~/Desktop` due to TCC. PKG installs intentionally copy to `/tmp/BoxCutter-<UUID>-<name>.pkg` first.
 - Do not add an overall timeout around the helper install operation. Large packages legitimately exceed 30s; timing out causes duplicate installs. The readiness probe distinguishes two failures: a quick XPC error (`.errored`, possibly an old resident helper without `ping`) still falls through to `installPackage`, but a silent 30s timeout (`.unreachable`) returns instead of calling it. An install that never started cannot be duplicated, and calling `installPackage` against a daemon launchd cannot spawn hangs the UI forever with no output.
-- The helper is a resident daemon that never exits on its own. Once running it serves everything, which masks registration problems — a stale registration only bites when the helper is cold. `SMAppService.status` reports `.enabled` ("Installed & Running", green) even when the daemon cannot actually be reached, so status is not proof of health. Settings > Permissions > Helper Daemon > **Test** calls `runDiagnostic`, which runs `/usr/bin/id -u` as root and is the only real check.
+- The helper is a resident daemon that never exits on its own. Once running it serves everything, which masks registration problems — a stale registration only bites when the helper is cold. `SMAppService.status` reports `.enabled` ("Installed & Running", green) even when the daemon cannot actually be reached, so status is not proof of health. Settings > Helper > Helper Daemon > **Test** calls `runDiagnostic`, which runs `/usr/bin/id -u` as root and is the only real check.
 - Replacing `/Applications/BoxCutter.app` can leave the registered daemon stale. Uninstall + Install Helper in Settings re-registers it without needing fresh System Settings approval.
 - `XPCClient.onStatus` feeds handshake commentary into `outputLines`. Without it the helper path shows an empty log at 0% for the whole probe window.
 - DMG copy uses `ditto -V` into a hidden staging bundle under `/Applications`, then atomic swap. Pre-existing apps are moved aside to `.BoxCutter-backup-...` before replacement.
+- Thin Universal apps: `universalAppThinningMode` is an Installation dropdown (`ask` default / `always` / `never`). Legacy `stripUniversalApps` true migrates to Always, false to Ask; explicit new values take priority. `hasChosenUniversalAppStripping` gates the first-use No/Yes/Always sheet. Yes/No apply only to that install; Always saves the Always mode. Later Ask questions use `DMGThinningChoiceView` only after Install/Update. Always/Never never ask thinning questions. Explicit Settings changes suppress first-use guidance; Restore Defaults resets it. `appIDsWithThinningDecision` tracks answers; automatic thinning never overrides an explicit per-app No.
+- `UniversalThinningPrompt` uses an explicitly stacked sheet so No/Yes/Always stay top-to-bottom with Always blue. Native SwiftUI `.alert` moves the default button first and cancel buttons last; do not switch back to `.alert`.
+- The first-use sheet uses the user-supplied `UniversalThinningIcon` image asset, not the app icon. `AppViewModel(applicationsDirectory:)` redirects state-flow tests into isolated temporary destinations; production uses `/Applications` and only detaches its tracked mount.
+- `BinaryArchitecture.native` checks hardware capability to handle Rosetta. `UniversalBinary` estimates savings from bounded, validated FAT/FAT64 headers without following symlinks. `ditto --arch` thins only the staging copy (including nested universal code), preserves original signatures/metadata, and needs no developer tools or sudo. Verify the resulting main architecture and any original valid signature before replacement; never re-sign or remove quarantine to make thinning succeed. `copyApp(applicationsDirectory:)` permits isolated integration installs; production uses `/Applications`. `AppSettings(defaults:)` and `AppViewModel(settings:)` isolate preference/state tests from user settings.
 - Startup cleanup removes orphaned staging bundles only. **Do not** delete `.BoxCutter-backup-*` — those are user recovery artifacts.
 - `isCodeSignatureValid` uses default `SecStaticCodeCheckValidity` flags (not strict/deep) to avoid false negatives on legitimate signed apps.
 - `unmount` is fire-and-forget by design (avoids blocking caller threads). The cost is that images can stay attached: a re-attach then fails with `hdiutil: attach failed - Resource busy`. `mount` recovers by looking the image up via `hdiutil info -plist` (`attachedMountPoint`) and reusing the existing mount, with one 600ms retry.
