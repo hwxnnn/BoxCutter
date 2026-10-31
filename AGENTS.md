@@ -49,6 +49,13 @@ Release build (no signing — verifies compile only):
 xcodebuild -quiet -project BoxCutter.xcodeproj -scheme BoxCutter -configuration Release -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
 ```
 
+Developer ID archive (universal; team supplied locally):
+```sh
+xcodebuild -project BoxCutter.xcodeproj -scheme BoxCutter -configuration Release -destination 'generic/platform=macOS' -archivePath /absolute/path/BoxCutter.xcarchive DEVELOPMENT_TEAM=<id> archive
+```
+Export with `xcodebuild -exportArchive` using `method=developer-id`, `signingStyle=manual`, `signingCertificate=Developer ID Application`, and the local `teamID` in an export options plist. ZIP with `ditto -c -k --sequesterRsrc --keepParent`, submit via `xcrun notarytool submit --keychain-profile <profile> --wait`, staple + validate the exported app, then recreate the release ZIP. Keep archives, export options, credentials, and release assets outside the repo.
+Xcode alternative: Organizer → Archives → Distribute App → Direct Distribution notarizes using the signed-in Xcode account without a notarytool profile; export after acceptance, then verify the stapled app.
+
 Diff sanity:
 ```sh
 git diff --check
@@ -73,7 +80,7 @@ No test target, no lint config, no formatter config. Use compile success as the 
 - UI root and state routing: `BoxCutter/ContentView.swift`
 - Behavior changes (PKG + DMG flows): `BoxCutter/ViewModels/AppViewModel.swift`
 - State enum: `BoxCutter/Models/AppState.swift`
-- Settings + presets: `BoxCutter/Models/AppSettings.swift` (`AppSettings.shared`, `UserDefaults`-backed)
+- Settings + output presets: `BoxCutter/Models/AppSettings.swift` (`AppSettings.shared`, `UserDefaults`-backed). New/reset defaults confirm PKG + DMG installs and retain source files (Maximum Safety); individual saved choices persist. No safety presets.
 - Completion chimes: `BoxCutter/Services/CompletionSound.swift`. `AppSettings.completionSound` stores either `CompletionSound.defaultName` ("Default", the bundled pair) or a macOS system sound name. Bundled is the registered default. System-sound selections still pair with Basso on failure — the picker only ever had one slot. Never call `NSSound` for completion directly; route through this type.
 - PKG install fallback (AppleScript admin): `BoxCutter/Services/DirectInstaller.swift`
 - Privileged XPC client: `BoxCutter/Services/XPCClient.swift`
@@ -108,6 +115,7 @@ State machine summary:
 - `DMGService.scan` walks the volume root plus one level of subfolders for both `findApps` and `findPackages`. It must never descend into symlinks or bundles: every DMG ships an `Applications` alias, and following it would enumerate the user's entire `/Applications` as DMG content. `isTraversableDirectory` enforces this via `.isSymbolicLinkKey` + `.isPackageKey` — verified against a real image.
 - A `.pkg` installed off a mounted image must not be trashed: it lives on a read-only volume. `disposeOfInstalledSource` unmounts and applies `trashDMGAfterInstall` to the `.dmg` the user dropped instead of `trashAfterInstall` to the package.
 - DMG packages install sequentially, not in parallel — each is a privileged `installer` run. Under the AppleScript fallback that means one password prompt per package; the helper daemon path prompts none.
+- Installed apps launch via `NSWorkspace.openApplication(at:configuration:completionHandler:)` without blocking completion UI. Automatic opening quits BoxCutter only on launch success with `autoCloseAfterInstall` enabled at callback time; reset invalidates pending callbacks. No timer or focus-based auto-close; legacy `autoCloseDelay` defaults are ignored. Manual Open never quits. Synchronous `open(_:)` blocks the main actor at the Gatekeeper prompt.
 - Helper packaging: main app's Copy Files build phase embeds the helper binary + plist into `Contents/Library/LaunchDaemons`. First-run requires user approval in System Settings → Login Items & Extensions.
 - Signed Release builds need a Developer ID Application private key in the keychain; otherwise use `CODE_SIGNING_ALLOWED=NO`.
 - `DirectInstaller` builds privileged shell commands via AppleScript `quoted form of`. Do not regress to manual string escaping — backticks, `$()`, quotes, spaces, backslashes must not become injection under admin privileges.

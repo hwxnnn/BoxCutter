@@ -17,13 +17,6 @@ struct SettingsView: View {
         "Hero", "Morse", "Ping", "Pop", "Purr", "Sosumi", "Submarine", "Tink"
     ]
 
-    private var safetyProfileBinding: Binding<AppSettings.SafetyProfile> {
-        Binding(
-            get: { settings.safetyProfile },
-            set: { settings.safetyProfile = $0 }
-        )
-    }
-
     private var outputProfileBinding: Binding<AppSettings.OutputProfile> {
         Binding(
             get: { settings.outputProfile },
@@ -68,36 +61,20 @@ struct SettingsView: View {
     private var general: some View {
         settingsForm {
             Section("Window") {
-                toggle(
+                Toggle(
                     "Always on top",
-                    "Keep BoxCutter above other app windows.",
                     isOn: $settings.alwaysOnTop
                 )
             }
 
             Section("Completion") {
-                toggle(
-                    "Auto close after install",
-                    "Close BoxCutter after completion when the app is no longer focused.",
+                Toggle(
+                    "Automatically close BoxCutter",
                     isOn: $settings.autoCloseAfterInstall
                 )
 
-                if settings.autoCloseAfterInstall {
-                    LabeledContent("Auto-close delay") {
-                        HStack(spacing: 10) {
-                            Slider(value: $settings.autoCloseDelay, in: 1...30, step: 1)
-                                .frame(width: 150)
-                            Text("\(Int(settings.autoCloseDelay))s")
-                                .font(.body.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                                .frame(width: 32, alignment: .trailing)
-                        }
-                    }
-                }
-
-                toggle(
+                Toggle(
                     "Play completion sound",
-                    "Play a sound on success or failure.",
                     isOn: $settings.playSoundOnComplete
                 )
 
@@ -128,15 +105,13 @@ struct SettingsView: View {
             }
 
             Section {
-                toggle(
+                Toggle(
                     "Open installed app automatically",
-                    "Open the app after install when the image contains one selected app.",
                     isOn: $settings.autoOpenSingleDMGApp
                 )
 
-                toggle(
+                Toggle(
                     "Reveal installed app in Finder",
-                    "Show the app in Finder after install when the image contains one selected app.",
                     isOn: $settings.autoRevealSingleDMGApp
                 )
             } header: {
@@ -147,28 +122,14 @@ struct SettingsView: View {
 
     private var installation: some View {
         settingsForm {
-            Section {
-                Picker("Safety preset", selection: safetyProfileBinding) {
-                    ForEach(AppSettings.SafetyProfile.allCases) { profile in
-                        Text(profile.title).tag(profile)
-                    }
-                }
-            } footer: {
-                Text("Choose a baseline, then fine-tune the individual options below.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             Section("Packages (.pkg)") {
-                toggle(
-                    "Confirm before installing",
-                    "Ask for confirmation before running the installer.",
+                Toggle(
+                    "Ask for confirmation",
                     isOn: $settings.confirmBeforeInstall
                 )
 
-                toggle(
-                    "Move source file to Trash",
-                    "Move the original .pkg to Trash after a successful install.",
+                Toggle(
+                    "Move .pkg file to trash",
                     isOn: $settings.trashAfterInstall
                 )
 
@@ -180,15 +141,13 @@ struct SettingsView: View {
             }
 
             Section("Disk Images (.dmg)") {
-                toggle(
-                    "Confirm before installing",
-                    "Ask for confirmation before copying apps from the mounted image.",
+                Toggle(
+                    "Ask for confirmation",
                     isOn: $settings.confirmBeforeDMGInstall
                 )
 
-                toggle(
-                    "Move source file to Trash",
-                    "Move the original .dmg to Trash after a successful install.",
+                Toggle(
+                    "Move .dmg file to trash",
                     isOn: $settings.trashDMGAfterInstall
                 )
             }

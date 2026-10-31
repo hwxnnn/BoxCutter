@@ -31,7 +31,7 @@ class AppViewModel {
     var shouldQuitOnDone: Bool = false
 
     private var currentMountPoint: URL?
-    private var autoCloseTask: Task<Void, Never>?
+    private var automaticLaunchID: UUID?
     /// Set when the package being installed came off a mounted image, so completion
     /// trashes the .dmg the user dropped rather than the .pkg on a read-only volume.
     private var pkgSourceDMG: URL?
@@ -426,7 +426,7 @@ class AppViewModel {
                         revealInstalledApp(app)
                     }
                     if settings.autoOpenSingleDMGApp {
-                        openInstalledApp(app)
+                        openInstalledApp(app, quitAfterLaunch: true)
                     }
                 }
             } else {
@@ -491,8 +491,28 @@ class AppViewModel {
         done()
     }
 
-    func openInstalledApp(_ app: InstalledApp) {
-        NSWorkspace.shared.open(app.installedURL)
+    func openInstalledApp(_ app: InstalledApp, quitAfterLaunch: Bool = false) {
+        let launchID = quitAfterLaunch ? UUID() : nil
+        if let launchID {
+            automaticLaunchID = launchID
+        }
+
+        // The synchronous open(_:) blocks the UI until Gatekeeper is dismissed.
+        // Launch independently; its outcome must not affect installation completion.
+        NSWorkspace.shared.openApplication(
+            at: app.installedURL,
+            configuration: NSWorkspace.OpenConfiguration()
+        ) { [weak self] runningApp, error in
+            guard let launchID else { return }
+            let succeeded = runningApp != nil && error == nil
+            Task { @MainActor [weak self] in
+                guard let self, self.automaticLaunchID == launchID else { return }
+                self.automaticLaunchID = nil
+                if succeeded && self.settings.autoCloseAfterInstall {
+                    NSApplication.shared.terminate(nil)
+                }
+            }
+        }
     }
 
     func revealInstalledApp(_ app: InstalledApp) {
@@ -511,8 +531,7 @@ class AppViewModel {
     }
 
     func reset() {
-        autoCloseTask?.cancel()
-        autoCloseTask = nil
+        automaticLaunchID = nil
         if let mp = currentMountPoint {
             currentMountPoint = nil
             Task.detached { DMGService.unmount(mountPoint: mp) }
@@ -530,30 +549,6 @@ class AppViewModel {
         pkgSourceDMG = nil
         activePkgURL = nil
         failedPkgURLs = []
-    }
-
-    // MARK: - Focus-based auto-close
-
-    func appWillResignActive() {
-        guard settings.autoCloseAfterInstall else { return }
-        let isComplete: Bool
-        switch state {
-        case .completed, .dmgCompleted: isComplete = true
-        default: isComplete = false
-        }
-        guard isComplete else { return }
-        autoCloseTask?.cancel()
-        autoCloseTask = Task { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(for: .seconds(settings.autoCloseDelay))
-            guard !Task.isCancelled else { return }
-            NSApplication.shared.terminate(nil)
-        }
-    }
-
-    func appDidBecomeActive() {
-        autoCloseTask?.cancel()
-        autoCloseTask = nil
     }
 
     func uninstallInstalledApps(_ apps: [InstalledApp]) {

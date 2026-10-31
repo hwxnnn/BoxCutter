@@ -138,12 +138,6 @@ struct ContentView: View {
                 viewModel.handleFile(url: url)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willResignActiveNotification)) { _ in
-            viewModel.appWillResignActive()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            viewModel.appDidBecomeActive()
-        }
     }
 
     // MARK: - First Launch

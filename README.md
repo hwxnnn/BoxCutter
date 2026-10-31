@@ -47,8 +47,8 @@ A dedicated launchd daemon handles elevated-privilege package installs via XPC, 
 **Quarantine fix**
 One-click removal of the macOS quarantine flag on apps installed from DMGs.
 
-**Safety profiles**
-Maximum, Balanced, or Fast presets control confirmation prompts and post-install cleanup.
+**Safe defaults**
+Confirm installs and keep the original `.pkg` and `.dmg` files by default. Adjust confirmation and cleanup individually in Settings.
 
 **Verbose output**
 Real-time installer logs and a progress bar during `.pkg` installations.

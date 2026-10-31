@@ -5,24 +5,6 @@ import SwiftUI
 class AppSettings {
     static let shared = AppSettings()
 
-    enum SafetyProfile: String, CaseIterable, Identifiable {
-        case maximum
-        case balanced
-        case fast
-        case custom
-
-        var id: Self { self }
-
-        var title: String {
-            switch self {
-            case .maximum: return "Maximum Safety"
-            case .balanced: return "Balanced"
-            case .fast: return "Fast Install"
-            case .custom: return "Custom"
-            }
-        }
-    }
-
     enum PrivilegeMethod: String, CaseIterable, Identifiable {
         case helper
         case appleScript
@@ -80,14 +62,9 @@ class AppSettings {
         }
     }
 
-    /// Automatically close the app after a successful installation
+    /// Quit after an automatically opened installed app successfully launches
     var autoCloseAfterInstall: Bool {
         didSet { UserDefaults.standard.set(autoCloseAfterInstall, forKey: "autoCloseAfterInstall") }
-    }
-
-    /// Delay in seconds before auto-closing (if enabled)
-    var autoCloseDelay: Double {
-        didSet { UserDefaults.standard.set(autoCloseDelay, forKey: "autoCloseDelay") }
     }
 
     /// Play a sound when installation completes
@@ -202,42 +179,6 @@ class AppSettings {
 
     // MARK: - Presets
 
-    var safetyProfile: SafetyProfile {
-        get {
-            switch (confirmBeforeInstall, trashAfterInstall, confirmBeforeDMGInstall, trashDMGAfterInstall) {
-            case (true, false, true, false):
-                return .maximum
-            case (true, true, true, true):
-                return .balanced
-            case (false, true, false, true):
-                return .fast
-            default:
-                return .custom
-            }
-        }
-        set {
-            switch newValue {
-            case .maximum:
-                confirmBeforeInstall = true
-                trashAfterInstall = false
-                confirmBeforeDMGInstall = true
-                trashDMGAfterInstall = false
-            case .balanced:
-                confirmBeforeInstall = true
-                trashAfterInstall = true
-                confirmBeforeDMGInstall = true
-                trashDMGAfterInstall = true
-            case .fast:
-                confirmBeforeInstall = false
-                trashAfterInstall = true
-                confirmBeforeDMGInstall = false
-                trashDMGAfterInstall = true
-            case .custom:
-                break
-            }
-        }
-    }
-
     var outputProfile: OutputProfile {
         get {
             switch (showVerboseOutput, showProgressBar, showScriptWarnings, showPayloadFiles) {
@@ -277,13 +218,12 @@ class AppSettings {
     func resetToDefaults() {
         alwaysOnTop = false
         autoCloseAfterInstall = false
-        autoCloseDelay = 3.0
         playSoundOnComplete = true
         completionSound = CompletionSound.defaultName
         autoOpenSingleDMGApp = false
         autoRevealSingleDMGApp = false
         confirmBeforeInstall = true
-        trashAfterInstall = true
+        trashAfterInstall = false
         rememberInstallTarget = false
         lastInstallTarget = "/"
         showVerboseOutput = true
@@ -291,7 +231,7 @@ class AppSettings {
         showScriptWarnings = true
         showPayloadFiles = true
         confirmBeforeDMGInstall = true
-        trashDMGAfterInstall = true
+        trashDMGAfterInstall = false
         privilegeMethodRaw = PrivilegeMethod.appleScript.rawValue
         hasShownFirstLaunchPrompt = false
     }
@@ -304,13 +244,12 @@ class AppSettings {
         let defaultValues: [String: Any] = [
             "alwaysOnTop": false,
             "autoCloseAfterInstall": false,
-            "autoCloseDelay": 3.0,
             "playSoundOnComplete": true,
             "completionSound": CompletionSound.defaultName,
             "autoOpenSingleDMGApp": false,
             "autoRevealSingleDMGApp": false,
             "confirmBeforeInstall": true,
-            "trashAfterInstall": true,
+            "trashAfterInstall": false,
             "rememberInstallTarget": false,
             "lastInstallTarget": "/",
             "showVerboseOutput": true,
@@ -318,7 +257,7 @@ class AppSettings {
             "showScriptWarnings": true,
             "showPayloadFiles": true,
             "confirmBeforeDMGInstall": true,
-            "trashDMGAfterInstall": true,
+            "trashDMGAfterInstall": false,
             "privilegeMethod": PrivilegeMethod.appleScript.rawValue,
             "hasShownFirstLaunchPrompt": false
         ]
@@ -326,7 +265,6 @@ class AppSettings {
 
         alwaysOnTop = defaults.bool(forKey: "alwaysOnTop")
         autoCloseAfterInstall = defaults.bool(forKey: "autoCloseAfterInstall")
-        autoCloseDelay = defaults.double(forKey: "autoCloseDelay")
         playSoundOnComplete = defaults.bool(forKey: "playSoundOnComplete")
         completionSound = defaults.string(forKey: "completionSound") ?? CompletionSound.defaultName
         autoOpenSingleDMGApp = defaults.bool(forKey: "autoOpenSingleDMGApp")
